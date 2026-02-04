@@ -223,55 +223,85 @@ io.on('connection', (socket) => {
     io.to(gameId).emit('players:update', game.players);
   });
   
-  socket.on('piece:grab', ({ pieceId }) => {
+  socket.on('piece:grab', ({ pieceId, groupId }) => {
     const game = activeGames.get(socket.gameId);
     if (!game) return;
     
     const piece = game.pieces.find(p => p.id === pieceId);
     if (piece && !piece.lockedBy && !piece.isPlaced) {
       piece.lockedBy = socket.id;
-      socket.to(socket.gameId).emit('piece:grabbed', { pieceId, playerId: socket.id });
+      socket.to(socket.gameId).emit('piece:grabbed', { pieceId, playerId: socket.id, groupId });
     }
   });
   
-  socket.on('piece:move', ({ pieceId, x, y }) => {
+  socket.on('piece:move', ({ pieceId, x, y, groupId, groupPieces }) => {
     const game = activeGames.get(socket.gameId);
     if (!game) return;
     
-    const piece = game.pieces.find(p => p.id === pieceId);
-    if (piece && piece.lockedBy === socket.id) {
-      piece.currentX = x;
-      piece.currentY = y;
-      socket.to(socket.gameId).emit('piece:moved', { pieceId, x, y, playerId: socket.id });
-    }
-  });
-  
-  socket.on('piece:release', ({ pieceId, x, y, placed }) => {
-    const game = activeGames.get(socket.gameId);
-    if (!game) return;
-    
-    const piece = game.pieces.find(p => p.id === pieceId);
-    if (piece && piece.lockedBy === socket.id) {
-      piece.currentX = x;
-      piece.currentY = y;
-      piece.isPlaced = placed;
-      piece.lockedBy = null;
-      
-      game.lastActivity = new Date().toISOString();
-      
-      const progress = calculateProgress(game.pieces);
-      
-      io.to(socket.gameId).emit('piece:released', { 
-        pieceId, x, y, placed, playerId: socket.id, progress 
+    if (groupPieces) {
+      groupPieces.forEach(gp => {
+        const p = game.pieces.find(piece => piece.id === gp.id);
+        if (p) { p.currentX = gp.x; p.currentY = gp.y; }
       });
-      
-      if (progress === 100) {
-        io.to(socket.gameId).emit('game:complete', { completedBy: game.players.map(p => p.name) });
+      socket.to(socket.gameId).emit('piece:moved', { pieceId, x, y, playerId: socket.id, groupId, groupPieces });
+    } else {
+      const piece = game.pieces.find(p => p.id === pieceId);
+      if (piece && piece.lockedBy === socket.id) {
+        piece.currentX = x;
+        piece.currentY = y;
+        socket.to(socket.gameId).emit('piece:moved', { pieceId, x, y, playerId: socket.id });
       }
-      
-      // Auto-save periodically
-      if (Math.random() < 0.1) saveGame(game);
     }
+  });
+  
+  socket.on('piece:release', ({ pieceId, x, y, placed, groupId, groupPieces, newGroup }) => {
+    const game = activeGames.get(socket.gameId);
+    if (!game) return;
+    
+    if (groupPieces) {
+      groupPieces.forEach(gp => {
+        const p = game.pieces.find(piece => piece.id === gp.id);
+        if (p) {
+          p.currentX = gp.x;
+          p.currentY = gp.y;
+          p.isPlaced = gp.placed;
+          p.lockedBy = null;
+        }
+      });
+    } else {
+      const piece = game.pieces.find(p => p.id === pieceId);
+      if (piece) {
+        piece.currentX = x;
+        piece.currentY = y;
+        piece.isPlaced = placed;
+        piece.lockedBy = null;
+      }
+    }
+    
+    if (newGroup) {
+      if (!game.groups) game.groups = [];
+      const existingIdx = game.groups.findIndex(g => 
+        g.pieceIds.some(pid => newGroup.pieceIds.includes(pid))
+      );
+      if (existingIdx >= 0) {
+        game.groups[existingIdx].pieceIds = newGroup.pieceIds;
+      } else {
+        game.groups.push(newGroup);
+      }
+    }
+    
+    game.lastActivity = new Date().toISOString();
+    const progress = calculateProgress(game.pieces);
+    
+    io.to(socket.gameId).emit('piece:released', { 
+      pieceId, x, y, placed, playerId: socket.id, progress, groupId, groupPieces, newGroup
+    });
+    
+    if (progress === 100) {
+      io.to(socket.gameId).emit('game:complete', { completedBy: game.players.map(p => p.name) });
+    }
+    
+    if (Math.random() < 0.1) saveGame(game);
   });
   
   socket.on('cursor:move', ({ x, y }) => {
