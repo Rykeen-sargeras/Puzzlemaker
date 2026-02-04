@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔥 Inferno Puzzle - Collaborative Puzzle Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    :root {
+      --fire-orange: #FF6B35;
+      --fire-yellow: #F7C531;
+      --fire-red: #E83F6F;
+      --ember: #FF4500;
+      --coal: #1a1a1a;
+      --ash: #2d2d2d;
+      --smoke: #3d3d3d;
+      --charcoal: #252525;
+      --glow: rgba(255, 107, 53, 0.5);
+    }
+    
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Rajdhani', sans-serif;
+      background: var(--coal);
+      color: #fff;
+    }
+    
+    body {
+      background: 
+        radial-gradient(ellipse at bottom, rgba(255, 69, 0, 0.15) 0%, transparent 60%),
+        radial-gradient(ellipse at top right, rgba(247, 197, 49, 0.08) 0%, transparent 40%),
+        linear-gradient(180deg, #0d0d0d 0%, #1a1a1a 50%, #1f1510 100%);
+    }
+    
+    /* Fire particles */
+    .fire-particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    
+    .ember-particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: var(--fire-orange);
+      border-radius: 50%;
+      filter: blur(1px);
+      animation: float-up 4s ease-in infinite;
+      box-shadow: 0 0 6px var(--fire-orange), 0 0 12px var(--fire-yellow);
+    }
+    
+    @keyframes float-up {
+      0% { transform: translateY(100vh) scale(1); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-20vh) scale(0); opacity: 0; }
+    }
+    
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 107, 53, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 1000;
+    }
+    
+    .logo {
+      font-family: 'Cinzel', serif;
+      font-size: 1.8rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--fire-yellow) 0%, var(--fire-orange) 50%, var(--fire-red) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 30px rgba(255, 107, 53, 0.5);
+      letter-spacing: 2px;
+    }
+    
+    .logo::before { content: '🔥 '; -webkit-text-fill-color: initial; }
+    
+    .header-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    .btn {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .btn-fire {
+      background: linear-gradient(135deg, var(--fire-orange) 0%, var(--fire-red) 100%);
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
+    }
+    
+    .btn-fire:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(255, 107, 53, 0.6);
+    }
+    
+    .btn-ghost {
+      background: transparent;
+      color: var(--fire-orange);
+      border: 1px solid var(--fire-orange);
+    }
+    
+    .btn-ghost:hover {
+      background: rgba(255, 107, 53, 0.1);
+    }
+    
+    /* Game Info Bar */
+    .game-info {
+      position: fixed;
+      top: 60px;
+      left: 0;
+      right: 0;
+      height: 50px;
+      background: rgba(0,0,0,0.6);
+      border-bottom: 1px solid rgba(255, 107, 53, 0.2);
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 999;
+    }
+    
+    .game-info.active { display: flex; }
+    
+    .game-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.1rem;
+      color: var(--fire-yellow);
+    }
+    
+    .game-code {
+      font-family: monospace;
+      font-size: 1.2rem;
+      background: var(--ash);
+      padding: 4px 12px;
+      border-radius: 4px;
+      color: var(--fire-orange);
+      border: 1px solid rgba(255, 107, 53, 0.3);
+      letter-spacing: 2px;
+    }
+    
+    /* Progress Bar */
+    .progress-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      max-width: 300px;
+      margin: 0 20px;
+    }
+    
+    .progress-bar {
+      flex: 1;
+      height: 8px;
+      background: var(--ash);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--fire-orange), var(--fire-yellow));
+      border-radius: 4px;
+      transition: width 0.5s ease;
+      box-shadow: 0 0 10px var(--fire-orange);
+    }
+    
+    .progress-text {
+      font-weight: 700;
+      color: var(--fire-yellow);
+      min-width: 50px;
+      text-align: right;
+    }
+    
+    /* Players Panel */
+    .players-panel {
+      position: fixed;
+      top: 120px;
+      right: 10px;
+      width: 200px;
+      background: rgba(0,0,0,0.8);
+      border: 1px solid rgba(255, 107, 53, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      z-index: 998;
+      display: none;
+    }
+    
+    .players-panel.active { display: block; }
+    
+    .players-title {
+      font-family: 'Cinzel', serif;
+      font-size: 0.9rem;
+      color: var(--fire-orange);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .player-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 0.85rem;
+    }
+    
+    .player-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      box-shadow: 0 0 8px currentColor;
+    }
+    
+    .player-name { flex: 1; }
+    .player-you { color: var(--fire-yellow); font-weight: 600; }
+    
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .modal {
+      background: linear-gradient(180deg, var(--charcoal) 0%, var(--coal) 100%);
+      border: 1px solid rgba(255, 107, 53, 0.4);
+      border-radius: 12px;
+      padding: 30px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+      box-shadow: 0 0 60px rgba(255, 107, 53, 0.2);
+    }
+    
+    .modal-overlay.active .modal {
+      transform: scale(1);
+    }
+    
+    .modal-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.5rem;
+      color: var(--fire-orange);
+      margin-bottom: 20px;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 12px;
+      background: var(--ash);
+      border: 1px solid rgba(255, 107, 53, 0.3);
+      border-radius: 6px;
+      color: #fff;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--fire-orange);
+      box-shadow: 0 0 15px rgba(255, 107, 53, 0.3);
+    }
+    
+    .form-input::file-selector-button {
+      background: var(--fire-orange);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      margin-right: 10px;
+    }
+    
+    .piece-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 8px;
+      background: var(--ash);
+      border-radius: 4px;
+      outline: none;
+    }
+    
+    .piece-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, var(--fire-orange), var(--fire-red));
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--fire-orange);
+    }
+    
+    .piece-count-display {
+      text-align: center;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--fire-yellow);
+      margin: 10px 0;
+    }
+    
+    .image-preview {
+      width: 100%;
+      max-height: 150px;
+      object-fit: contain;
+      border-radius: 6px;
+      margin-top: 10px;
+      display: none;
+    }
+    
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .btn-row .btn { flex: 1; }
+    
+    /* Saved Games List */
+    .saved-games-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .saved-game-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--ash);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 1px solid transparent;
+    }
+    
+    .saved-game-item:hover {
+      border-color: var(--fire-orange);
+      transform: translateX(5px);
+    }
+    
+    .saved-game-thumb {
+      width: 60px;
+      height: 45px;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+    
+    .saved-game-info { flex: 1; }
+    .saved-game-name { font-weight: 600; color: var(--fire-yellow); }
+    .saved-game-meta { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+    .saved-game-progress {
+      font-weight: 700;
+      color: var(--fire-orange);
+    }
+    
+    .no-games {
+      text-align: center;
+      color: rgba(255,255,255,0.5);
+      padding: 30px;
+    }
+    
+    /* Main Menu */
+    .main-menu {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    
+    .main-menu.hidden { display: none; }
+    
+    .menu-logo {
+      font-family: 'Cinzel', serif;
+      font-size: 4rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--fire-yellow) 0%, var(--fire-orange) 50%, var(--fire-red) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+      text-shadow: 0 0 60px rgba(255, 107, 53, 0.8);
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow {
+      0%, 100% { filter: drop-shadow(0 0 20px rgba(255, 107, 53, 0.6)); }
+      50% { filter: drop-shadow(0 0 40px rgba(255, 107, 53, 0.9)); }
+    }
+    
+    .menu-subtitle {
+      font-size: 1.2rem;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 50px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+    
+    .menu-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      width: 280px;
+    }
+    
+    .menu-btn {
+      padding: 16px 32px;
+      font-size: 1.1rem;
+      border-radius: 8px;
+    }
+    
+    .join-input-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .join-input {
+      flex: 1;
+      padding: 12px;
+      background: var(--ash);
+      border: 1px solid rgba(255, 107, 53, 0.3);
+      border-radius: 6px;
+      color: #fff;
+      font-family: monospace;
+      font-size: 1.1rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-align: center;
+    }
+    
+    .join-input:focus {
+      outline: none;
+      border-color: var(--fire-orange);
+    }
+    
+    /* Puzzle Canvas Area */
+    .puzzle-container {
+      position: fixed;
+      inset: 0;
+      top: 110px;
+      display: none;
+      overflow: hidden;
+      cursor: grab;
+    }
+    
+    .puzzle-container.active {
+      display: block;
+    }
+    
+    .puzzle-canvas {
+      position: absolute;
+      transform-origin: 0 0;
+    }
+    
+    .puzzle-board {
+      position: absolute;
+      left: 50px;
+      top: 50px;
+      border: 3px solid rgba(255, 107, 53, 0.5);
+      background: 
+        linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)),
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 49px,
+          rgba(255,107,53,0.1) 49px,
+          rgba(255,107,53,0.1) 50px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 49px,
+          rgba(255,107,53,0.1) 49px,
+          rgba(255,107,53,0.1) 50px
+        );
+      box-shadow: 
+        0 0 50px rgba(255, 107, 53, 0.2),
+        inset 0 0 100px rgba(0,0,0,0.5);
+      border-radius: 4px;
+    }
+    
+    .puzzle-piece {
+      position: absolute;
+      cursor: grab;
+      transition: box-shadow 0.2s ease;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+    }
+    
+    .puzzle-piece:hover {
+      z-index: 100;
+      box-shadow: 0 0 20px rgba(255, 107, 53, 0.6);
+    }
+    
+    .puzzle-piece.dragging {
+      cursor: grabbing;
+      z-index: 1000;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5), 0 0 30px var(--fire-orange);
+    }
+    
+    .puzzle-piece.placed {
+      cursor: default;
+      pointer-events: none;
+      opacity: 0.95;
+    }
+    
+    .puzzle-piece.locked {
+      outline: 3px solid;
+      outline-offset: -1px;
+    }
+    
+    /* Player cursors */
+    .remote-cursor {
+      position: absolute;
+      pointer-events: none;
+      z-index: 2000;
+      transition: transform 0.1s linear;
+    }
+    
+    .cursor-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 0 10px currentColor;
+    }
+    
+    .cursor-name {
+      position: absolute;
+      left: 16px;
+      top: -4px;
+      font-size: 0.75rem;
+      background: currentColor;
+      color: #000;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+    
+    /* Zoom controls */
+    .zoom-controls {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 999;
+    }
+    
+    .zoom-controls.active { display: flex; }
+    
+    .zoom-btn {
+      width: 40px;
+      height: 40px;
+      background: rgba(0,0,0,0.8);
+      border: 1px solid rgba(255, 107, 53, 0.4);
+      border-radius: 8px;
+      color: var(--fire-orange);
+      font-size: 1.4rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .zoom-btn:hover {
+      background: var(--fire-orange);
+      color: #fff;
+    }
+    
+    /* Victory Screen */
+    .victory-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.5s ease;
+    }
+    
+    .victory-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .victory-title {
+      font-family: 'Cinzel', serif;
+      font-size: 4rem;
+      background: linear-gradient(135deg, var(--fire-yellow), var(--fire-orange), var(--fire-red));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: victory-pulse 1s ease-in-out infinite;
+    }
+    
+    @keyframes victory-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    .victory-subtitle {
+      font-size: 1.5rem;
+      color: rgba(255,255,255,0.7);
+      margin: 20px 0 40px;
+    }
+    
+    /* Minimap */
+    .minimap {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      width: 150px;
+      background: rgba(0,0,0,0.8);
+      border: 1px solid rgba(255, 107, 53, 0.4);
+      border-radius: 8px;
+      padding: 8px;
+      display: none;
+      z-index: 999;
+    }
+    
+    .minimap.active { display: block; }
+    
+    .minimap-image {
+      width: 100%;
+      border-radius: 4px;
+      opacity: 0.8;
+    }
+    
+    .minimap-title {
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.5);
+      text-align: center;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    /* Toast notifications */
+    .toast-container {
+      position: fixed;
+      top: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2500;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .toast {
+      background: rgba(0,0,0,0.9);
+      border: 1px solid var(--fire-orange);
+      padding: 12px 24px;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: 500;
+      animation: toast-in 0.3s ease, toast-out 0.3s ease 2.7s forwards;
+      box-shadow: 0 0 20px rgba(255, 107, 53, 0.4);
+    }
+    
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes toast-out {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-20px); }
+    }
+    
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--coal); }
+    ::-webkit-scrollbar-thumb { 
+      background: var(--fire-orange); 
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Fire Particles Background -->
+  <div class="fire-particles" id="fireParticles"></div>
+  
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">INFERNO PUZZLE</div>
+    <div class="header-controls" id="headerControls">
+      <button class="btn btn-ghost" id="btnHome" style="display:none">← Menu</button>
+      <button class="btn btn-ghost" id="btnUpdateImage" style="display:none">Update Image</button>
+      <button class="btn btn-fire" id="btnShare" style="display:none">Share Code</button>
+    </div>
+  </header>
+  
+  <!-- Game Info Bar -->
+  <div class="game-info" id="gameInfo">
+    <div class="game-title" id="gameTitle">Loading...</div>
+    <div class="progress-container">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+      </div>
+      <span class="progress-text" id="progressText">0%</span>
+    </div>
+    <div class="game-code" id="gameCodeDisplay">--------</div>
+  </div>
+  
+  <!-- Players Panel -->
+  <div class="players-panel" id="playersPanel">
+    <div class="players-title">🔥 Players Online</div>
+    <div id="playersList"></div>
+  </div>
+  
+  <!-- Main Menu -->
+  <div class="main-menu" id="mainMenu">
+    <div class="menu-logo">🔥 INFERNO</div>
+    <div class="menu-subtitle">Collaborative Puzzle</div>
+    <div class="menu-buttons">
+      <button class="btn btn-fire menu-btn" id="btnNewGame">🎮 New Game</button>
+      <button class="btn btn-ghost menu-btn" id="btnLoadGame">📂 Load Game</button>
+      <div class="join-input-group">
+        <input type="text" class="join-input" id="joinCodeInput" placeholder="CODE" maxlength="8">
+        <button class="btn btn-fire" id="btnJoinGame">Join</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Puzzle Container -->
+  <div class="puzzle-container" id="puzzleContainer">
+    <div class="puzzle-canvas" id="puzzleCanvas">
+      <div class="puzzle-board" id="puzzleBoard"></div>
+    </div>
+  </div>
+  
+  <!-- Zoom Controls -->
+  <div class="zoom-controls" id="zoomControls">
+    <button class="zoom-btn" id="zoomIn">+</button>
+    <button class="zoom-btn" id="zoomOut">−</button>
+    <button class="zoom-btn" id="zoomReset">⟲</button>
+  </div>
+  
+  <!-- Minimap -->
+  <div class="minimap" id="minimap">
+    <img class="minimap-image" id="minimapImage" src="" alt="Reference">
+    <div class="minimap-title">Reference</div>
+  </div>
+  
+  <!-- New Game Modal -->
+  <div class="modal-overlay" id="newGameModal">
+    <div class="modal">
+      <h2 class="modal-title">🔥 Create New Puzzle</h2>
+      <div class="form-group">
+        <label class="form-label">Puzzle Name</label>
+        <input type="text" class="form-input" id="gameName" placeholder="My Awesome Puzzle">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Your Name</label>
+        <input type="text" class="form-input" id="playerName" placeholder="Enter your name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Upload Image</label>
+        <input type="file" class="form-input" id="imageUpload" accept="image/*">
+        <img class="image-preview" id="imagePreview">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Number of Pieces</label>
+        <input type="range" class="piece-slider" id="pieceSlider" min="100" max="1000" value="400" step="50">
+        <div class="piece-count-display" id="pieceCountDisplay">400 pieces</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="cancelNewGame">Cancel</button>
+        <button class="btn btn-fire" id="createGame">Create Puzzle</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Load Game Modal -->
+  <div class="modal-overlay" id="loadGameModal">
+    <div class="modal">
+      <h2 class="modal-title">📂 Load Saved Game</h2>
+      <div class="form-group">
+        <label class="form-label">Your Name</label>
+        <input type="text" class="form-input" id="loadPlayerName" placeholder="Enter your name">
+      </div>
+      <div class="saved-games-list" id="savedGamesList">
+        <div class="no-games">Loading saved games...</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="cancelLoadGame">Cancel</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Update Image Modal -->
+  <div class="modal-overlay" id="updateImageModal">
+    <div class="modal">
+      <h2 class="modal-title">🖼️ Update Puzzle Image</h2>
+      <p style="color: rgba(255,255,255,0.6); margin-bottom: 20px; text-align: center;">
+        Warning: This will reset all puzzle progress!
+      </p>
+      <div class="form-group">
+        <label class="form-label">New Image</label>
+        <input type="file" class="form-input" id="newImageUpload" accept="image/*">
+        <img class="image-preview" id="newImagePreview">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="cancelUpdateImage">Cancel</button>
+        <button class="btn btn-fire" id="confirmUpdateImage">Update & Reset</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Join Name Modal -->
+  <div class="modal-overlay" id="joinNameModal">
+    <div class="modal">
+      <h2 class="modal-title">🔥 Join Puzzle</h2>
+      <div class="form-group">
+        <label class="form-label">Your Name</label>
+        <input type="text" class="form-input" id="joinPlayerName" placeholder="Enter your name">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="cancelJoin">Cancel</button>
+        <button class="btn btn-fire" id="confirmJoin">Join Game</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Victory Overlay -->
+  <div class="victory-overlay" id="victoryOverlay">
+    <div class="victory-title">🔥 PUZZLE COMPLETE! 🔥</div>
+    <div class="victory-subtitle">Congratulations to all players!</div>
+    <button class="btn btn-fire menu-btn" id="victoryHome">Back to Menu</button>
+  </div>
+  
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    // ===== FIRE PARTICLES =====
+    function createFireParticles() {
+      const container = document.getElementById('fireParticles');
+      for (let i = 0; i < 30; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'ember-particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDelay = Math.random() * 4 + 's';
+        particle.style.animationDuration = (3 + Math.random() * 3) + 's';
+        container.appendChild(particle);
+      }
+    }
+    createFireParticles();
+    
+    // ===== GLOBAL STATE =====
+    let socket = null;
+    let currentGame = null;
+    let myPlayerId = null;
+    let playerName = localStorage.getItem('playerName') || '';
+    let pieceElements = new Map();
+    let remoteCursors = new Map();
+    
+    // Canvas state
+    let canvasScale = 1;
+    let canvasX = 0;
+    let canvasY = 0;
+    let isDraggingCanvas = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+    
+    // Piece dragging
+    let draggedPiece = null;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    
+    // ===== DOM ELEMENTS =====
+    const mainMenu = document.getElementById('mainMenu');
+    const puzzleContainer = document.getElementById('puzzleContainer');
+    const puzzleCanvas = document.getElementById('puzzleCanvas');
+    const puzzleBoard = document.getElementById('puzzleBoard');
+    const gameInfo = document.getElementById('gameInfo');
+    const playersPanel = document.getElementById('playersPanel');
+    const zoomControls = document.getElementById('zoomControls');
+    const minimap = document.getElementById('minimap');
+    
+    // ===== TOAST NOTIFICATIONS =====
+    function showToast(message) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+    
+    // ===== MODAL HELPERS =====
+    function openModal(id) {
+      document.getElementById(id).classList.add('active');
+    }
+    
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+    
+    // ===== SOCKET CONNECTION =====
+    function connectSocket() {
+      socket = io();
+      
+      socket.on('connect', () => {
+        console.log('Connected to server');
+      });
+      
+      socket.on('game:state', (game) => {
+        currentGame = game;
+        myPlayerId = game.yourId;
+        renderGame();
+        showToast('Joined puzzle: ' + game.name);
+      });
+      
+      socket.on('player:joined', (player) => {
+        if (player.id !== myPlayerId) {
+          showToast(player.name + ' joined the puzzle!');
+        }
+      });
+      
+      socket.on('player:left', ({ playerId }) => {
+        const cursor = remoteCursors.get(playerId);
+        if (cursor) {
+          cursor.remove();
+          remoteCursors.delete(playerId);
+        }
+      });
+      
+      socket.on('players:update', (players) => {
+        currentGame.players = players;
+        renderPlayers();
+      });
+      
+      socket.on('piece:grabbed', ({ pieceId, playerId }) => {
+        const piece = currentGame.pieces.find(p => p.id === pieceId);
+        if (piece) piece.lockedBy = playerId;
+        updatePieceLock(pieceId, playerId);
+      });
+      
+      socket.on('piece:moved', ({ pieceId, x, y, playerId }) => {
+        const piece = currentGame.pieces.find(p => p.id === pieceId);
+        if (piece) {
+          piece.currentX = x;
+          piece.currentY = y;
+        }
+        const el = pieceElements.get(pieceId);
+        if (el) {
+          el.style.left = x + 'px';
+          el.style.top = y + 'px';
+        }
+      });
+      
+      socket.on('piece:released', ({ pieceId, x, y, placed, playerId, progress }) => {
+        const piece = currentGame.pieces.find(p => p.id === pieceId);
+        if (piece) {
+          piece.currentX = x;
+          piece.currentY = y;
+          piece.isPlaced = placed;
+          piece.lockedBy = null;
+        }
+        const el = pieceElements.get(pieceId);
+        if (el) {
+          el.style.left = x + 'px';
+          el.style.top = y + 'px';
+          el.classList.remove('locked');
+          el.style.outlineColor = '';
+          if (placed) {
+            el.classList.add('placed');
+          }
+        }
+        updateProgress(progress);
+      });
+      
+      socket.on('cursor:update', ({ playerId, x, y }) => {
+        updateRemoteCursor(playerId, x, y);
+      });
+      
+      socket.on('game:reset', ({ imageUrl, pieces }) => {
+        currentGame.imageUrl = imageUrl;
+        currentGame.pieces = pieces;
+        renderPuzzle();
+        document.getElementById('minimapImage').src = imageUrl;
+        showToast('Puzzle image updated! Progress reset.');
+      });
+      
+      socket.on('game:complete', () => {
+        document.getElementById('victoryOverlay').classList.add('active');
+      });
+      
+      socket.on('error', ({ message }) => {
+        showToast('Error: ' + message);
+      });
+    }
+    
+    // ===== REMOTE CURSORS =====
+    function updateRemoteCursor(playerId, x, y) {
+      let cursor = remoteCursors.get(playerId);
+      const player = currentGame?.players.find(p => p.id === playerId);
+      
+      if (!cursor && player) {
+        cursor = document.createElement('div');
+        cursor.className = 'remote-cursor';
+        cursor.innerHTML = `
+          <div class="cursor-dot" style="background: ${player.color}; color: ${player.color}"></div>
+          <div class="cursor-name" style="background: ${player.color}">${player.name}</div>
+        `;
+        puzzleCanvas.appendChild(cursor);
+        remoteCursors.set(playerId, cursor);
+      }
+      
+      if (cursor) {
+        cursor.style.transform = `translate(${x}px, ${y}px)`;
+      }
+    }
+    
+    // ===== RENDER FUNCTIONS =====
+    function renderGame() {
+      mainMenu.classList.add('hidden');
+      puzzleContainer.classList.add('active');
+      gameInfo.classList.add('active');
+      playersPanel.classList.add('active');
+      zoomControls.classList.add('active');
+      minimap.classList.add('active');
+      
+      document.getElementById('btnHome').style.display = 'block';
+      document.getElementById('btnUpdateImage').style.display = 'block';
+      document.getElementById('btnShare').style.display = 'block';
+      
+      document.getElementById('gameTitle').textContent = currentGame.name;
+      document.getElementById('gameCodeDisplay').textContent = currentGame.id;
+      document.getElementById('minimapImage').src = currentGame.imageUrl;
+      
+      updateProgress(currentGame.progress);
+      renderPlayers();
+      renderPuzzle();
+      
+      // Center view
+      canvasScale = 0.8;
+      canvasX = 50;
+      canvasY = 20;
+      updateCanvasTransform();
+    }
+    
+    function renderPlayers() {
+      const list = document.getElementById('playersList');
+      list.innerHTML = currentGame.players.map(p => `
+        <div class="player-item">
+          <div class="player-dot" style="background: ${p.color}; color: ${p.color}"></div>
+          <span class="player-name ${p.id === myPlayerId ? 'player-you' : ''}">${p.name}${p.id === myPlayerId ? ' (You)' : ''}</span>
+        </div>
+      `).join('');
+    }
+    
+    function renderPuzzle() {
+      puzzleBoard.innerHTML = '';
+      pieceElements.clear();
+      
+      const pieceWidth = 800 / currentGame.gridSize.cols;
+      const pieceHeight = 600 / currentGame.gridSize.rows;
+      
+      puzzleBoard.style.width = '800px';
+      puzzleBoard.style.height = '600px';
+      
+      // Pre-load image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        currentGame.pieces.forEach(piece => {
+          createPieceElement(piece, img, pieceWidth, pieceHeight);
+        });
+      };
+      img.src = currentGame.imageUrl;
+    }
+    
+    function createPieceElement(piece, img, pieceWidth, pieceHeight) {
+      const canvas = document.createElement('canvas');
+      canvas.width = pieceWidth;
+      canvas.height = pieceHeight;
+      const ctx = canvas.getContext('2d');
+      
+      // Calculate source coordinates
+      const sx = (piece.correctCol / currentGame.gridSize.cols) * img.width;
+      const sy = (piece.correctRow / currentGame.gridSize.rows) * img.height;
+      const sw = img.width / currentGame.gridSize.cols;
+      const sh = img.height / currentGame.gridSize.rows;
+      
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, pieceWidth, pieceHeight);
+      
+      const el = document.createElement('div');
+      el.className = 'puzzle-piece' + (piece.isPlaced ? ' placed' : '');
+      el.style.width = pieceWidth + 'px';
+      el.style.height = pieceHeight + 'px';
+      el.style.left = piece.currentX + 'px';
+      el.style.top = piece.currentY + 'px';
+      el.style.backgroundImage = `url(${canvas.toDataURL()})`;
+      el.style.backgroundSize = 'cover';
+      el.dataset.pieceId = piece.id;
+      
+      if (piece.lockedBy && piece.lockedBy !== myPlayerId) {
+        const player = currentGame.players.find(p => p.id === piece.lockedBy);
+        if (player) {
+          el.classList.add('locked');
+          el.style.outlineColor = player.color;
+        }
+      }
+      
+      el.addEventListener('mousedown', onPieceMouseDown);
+      el.addEventListener('touchstart', onPieceTouchStart, { passive: false });
+      
+      puzzleCanvas.appendChild(el);
+      pieceElements.set(piece.id, el);
+    }
+    
+    function updatePieceLock(pieceId, playerId) {
+      const el = pieceElements.get(pieceId);
+      if (!el) return;
+      
+      if (playerId && playerId !== myPlayerId) {
+        const player = currentGame.players.find(p => p.id === playerId);
+        if (player) {
+          el.classList.add('locked');
+          el.style.outlineColor = player.color;
+        }
+      } else {
+        el.classList.remove('locked');
+        el.style.outlineColor = '';
+      }
+    }
+    
+    function updateProgress(progress) {
+      currentGame.progress = progress;
+      document.getElementById('progressFill').style.width = progress + '%';
+      document.getElementById('progressText').textContent = progress + '%';
+    }
+    
+    // ===== CANVAS PAN & ZOOM =====
+    function updateCanvasTransform() {
+      puzzleCanvas.style.transform = `translate(${canvasX}px, ${canvasY}px) scale(${canvasScale})`;
+    }
+    
+    puzzleContainer.addEventListener('mousedown', (e) => {
+      if (e.target === puzzleContainer || e.target === puzzleCanvas) {
+        isDraggingCanvas = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        puzzleContainer.style.cursor = 'grabbing';
+      }
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+      if (isDraggingCanvas) {
+        canvasX += e.clientX - lastMouseX;
+        canvasY += e.clientY - lastMouseY;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        updateCanvasTransform();
+      }
+      
+      // Send cursor position
+      if (currentGame && socket) {
+        const rect = puzzleCanvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / canvasScale;
+        const y = (e.clientY - rect.top) / canvasScale;
+        socket.emit('cursor:move', { x, y });
+      }
+    });
+    
+    document.addEventListener('mouseup', () => {
+      isDraggingCanvas = false;
+      puzzleContainer.style.cursor = 'grab';
+    });
+    
+    puzzleContainer.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      canvasScale = Math.max(0.3, Math.min(3, canvasScale * delta));
+      updateCanvasTransform();
+    });
+    
+    document.getElementById('zoomIn').addEventListener('click', () => {
+      canvasScale = Math.min(3, canvasScale * 1.2);
+      updateCanvasTransform();
+    });
+    
+    document.getElementById('zoomOut').addEventListener('click', () => {
+      canvasScale = Math.max(0.3, canvasScale / 1.2);
+      updateCanvasTransform();
+    });
+    
+    document.getElementById('zoomReset').addEventListener('click', () => {
+      canvasScale = 0.8;
+      canvasX = 50;
+      canvasY = 20;
+      updateCanvasTransform();
+    });
+    
+    // ===== PIECE DRAGGING =====
+    function onPieceMouseDown(e) {
+      e.stopPropagation();
+      const pieceId = parseInt(e.target.dataset.pieceId);
+      const piece = currentGame.pieces.find(p => p.id === pieceId);
+      
+      if (piece.isPlaced || (piece.lockedBy && piece.lockedBy !== myPlayerId)) return;
+      
+      draggedPiece = piece;
+      const rect = e.target.getBoundingClientRect();
+      const canvasRect = puzzleCanvas.getBoundingClientRect();
+      
+      dragOffsetX = (e.clientX - rect.left) / canvasScale;
+      dragOffsetY = (e.clientY - rect.top) / canvasScale;
+      
+      e.target.classList.add('dragging');
+      socket.emit('piece:grab', { pieceId });
+      
+      document.addEventListener('mousemove', onPieceMouseMove);
+      document.addEventListener('mouseup', onPieceMouseUp);
+    }
+    
+    function onPieceMouseMove(e) {
+      if (!draggedPiece) return;
+      
+      const canvasRect = puzzleCanvas.getBoundingClientRect();
+      const x = (e.clientX - canvasRect.left) / canvasScale - dragOffsetX;
+      const y = (e.clientY - canvasRect.top) / canvasScale - dragOffsetY;
+      
+      draggedPiece.currentX = x;
+      draggedPiece.currentY = y;
+      
+      const el = pieceElements.get(draggedPiece.id);
+      if (el) {
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+      }
+      
+      socket.emit('piece:move', { pieceId: draggedPiece.id, x, y });
+    }
+    
+    function onPieceMouseUp(e) {
+      if (!draggedPiece) return;
+      
+      const el = pieceElements.get(draggedPiece.id);
+      el?.classList.remove('dragging');
+      
+      // Check if piece is in correct position
+      const pieceWidth = 800 / currentGame.gridSize.cols;
+      const pieceHeight = 600 / currentGame.gridSize.rows;
+      const boardLeft = 50;
+      const boardTop = 50;
+      
+      const correctX = boardLeft + draggedPiece.correctCol * pieceWidth;
+      const correctY = boardTop + draggedPiece.correctRow * pieceHeight;
+      
+      const threshold = Math.min(pieceWidth, pieceHeight) * 0.4;
+      const dx = Math.abs(draggedPiece.currentX - correctX);
+      const dy = Math.abs(draggedPiece.currentY - correctY);
+      
+      let placed = false;
+      if (dx < threshold && dy < threshold) {
+        draggedPiece.currentX = correctX;
+        draggedPiece.currentY = correctY;
+        placed = true;
+        if (el) {
+          el.style.left = correctX + 'px';
+          el.style.top = correctY + 'px';
+          el.classList.add('placed');
+        }
+      }
+      
+      socket.emit('piece:release', {
+        pieceId: draggedPiece.id,
+        x: draggedPiece.currentX,
+        y: draggedPiece.currentY,
+        placed
+      });
+      
+      draggedPiece = null;
+      document.removeEventListener('mousemove', onPieceMouseMove);
+      document.removeEventListener('mouseup', onPieceMouseUp);
+    }
+    
+    // Touch support
+    function onPieceTouchStart(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const pieceId = parseInt(e.target.dataset.pieceId);
+      const piece = currentGame.pieces.find(p => p.id === pieceId);
+      
+      if (piece.isPlaced || (piece.lockedBy && piece.lockedBy !== myPlayerId)) return;
+      
+      draggedPiece = piece;
+      const rect = e.target.getBoundingClientRect();
+      
+      dragOffsetX = (touch.clientX - rect.left) / canvasScale;
+      dragOffsetY = (touch.clientY - rect.top) / canvasScale;
+      
+      e.target.classList.add('dragging');
+      socket.emit('piece:grab', { pieceId });
+      
+      document.addEventListener('touchmove', onPieceTouchMove, { passive: false });
+      document.addEventListener('touchend', onPieceTouchEnd);
+    }
+    
+    function onPieceTouchMove(e) {
+      e.preventDefault();
+      if (!draggedPiece) return;
+      
+      const touch = e.touches[0];
+      const canvasRect = puzzleCanvas.getBoundingClientRect();
+      const x = (touch.clientX - canvasRect.left) / canvasScale - dragOffsetX;
+      const y = (touch.clientY - canvasRect.top) / canvasScale - dragOffsetY;
+      
+      draggedPiece.currentX = x;
+      draggedPiece.currentY = y;
+      
+      const el = pieceElements.get(draggedPiece.id);
+      if (el) {
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+      }
+      
+      socket.emit('piece:move', { pieceId: draggedPiece.id, x, y });
+    }
+    
+    function onPieceTouchEnd(e) {
+      onPieceMouseUp(e);
+      document.removeEventListener('touchmove', onPieceTouchMove);
+      document.removeEventListener('touchend', onPieceTouchEnd);
+    }
+    
+    // ===== API FUNCTIONS =====
+    async function createNewGame(name, playerNameVal, imageFile, pieceCount) {
+      const formData = new FormData();
+      formData.append('gameName', name);
+      formData.append('pieceCount', pieceCount);
+      formData.append('image', imageFile);
+      
+      const response = await fetch('/api/games', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) throw new Error('Failed to create game');
+      
+      const data = await response.json();
+      connectSocket();
+      setTimeout(() => {
+        socket.emit('game:join', { gameId: data.gameId, playerName: playerNameVal });
+      }, 500);
+    }
+    
+    async function loadSavedGames() {
+      const response = await fetch('/api/games');
+      return response.json();
+    }
+    
+    async function joinGame(gameId, playerNameVal) {
+      if (!socket) connectSocket();
+      setTimeout(() => {
+        socket.emit('game:join', { gameId: gameId.toUpperCase(), playerName: playerNameVal });
+      }, 500);
+    }
+    
+    async function updateGameImage(imageFile) {
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      
+      const response = await fetch(`/api/games/${currentGame.id}/image`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) throw new Error('Failed to update image');
+    }
+    
+    // ===== EVENT HANDLERS =====
+    
+    // New Game
+    document.getElementById('btnNewGame').addEventListener('click', () => {
+      document.getElementById('playerName').value = playerName;
+      openModal('newGameModal');
+    });
+    
+    document.getElementById('pieceSlider').addEventListener('input', (e) => {
+      document.getElementById('pieceCountDisplay').textContent = e.target.value + ' pieces';
+    });
+    
+    document.getElementById('imageUpload').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const preview = document.getElementById('imagePreview');
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+      }
+    });
+    
+    document.getElementById('cancelNewGame').addEventListener('click', () => closeModal('newGameModal'));
+    
+    document.getElementById('createGame').addEventListener('click', async () => {
+      const name = document.getElementById('gameName').value || 'Inferno Puzzle';
+      const playerNameVal = document.getElementById('playerName').value || 'Player';
+      const imageFile = document.getElementById('imageUpload').files[0];
+      const pieceCount = document.getElementById('pieceSlider').value;
+      
+      if (!imageFile) {
+        showToast('Please select an image!');
+        return;
+      }
+      
+      playerName = playerNameVal;
+      localStorage.setItem('playerName', playerName);
+      
+      closeModal('newGameModal');
+      showToast('Creating puzzle...');
+      
+      try {
+        await createNewGame(name, playerNameVal, imageFile, pieceCount);
+      } catch (err) {
+        showToast('Failed to create game');
+      }
+    });
+    
+    // Load Game
+    document.getElementById('btnLoadGame').addEventListener('click', async () => {
+      document.getElementById('loadPlayerName').value = playerName;
+      openModal('loadGameModal');
+      
+      try {
+        const games = await loadSavedGames();
+        const list = document.getElementById('savedGamesList');
+        
+        if (games.length === 0) {
+          list.innerHTML = '<div class="no-games">No saved games found</div>';
+          return;
+        }
+        
+        list.innerHTML = games.map(game => `
+          <div class="saved-game-item" data-game-id="${game.id}">
+            <img class="saved-game-thumb" src="${game.imageUrl}" alt="${game.name}">
+            <div class="saved-game-info">
+              <div class="saved-game-name">${game.name}</div>
+              <div class="saved-game-meta">${game.totalPieces} pieces • ${game.id}</div>
+            </div>
+            <div class="saved-game-progress">${game.progress}%</div>
+          </div>
+        `).join('');
+        
+        list.querySelectorAll('.saved-game-item').forEach(item => {
+          item.addEventListener('click', () => {
+            const gameId = item.dataset.gameId;
+            const playerNameVal = document.getElementById('loadPlayerName').value || 'Player';
+            playerName = playerNameVal;
+            localStorage.setItem('playerName', playerName);
+            closeModal('loadGameModal');
+            joinGame(gameId, playerNameVal);
+          });
+        });
+      } catch (err) {
+        document.getElementById('savedGamesList').innerHTML = '<div class="no-games">Failed to load games</div>';
+      }
+    });
+    
+    document.getElementById('cancelLoadGame').addEventListener('click', () => closeModal('loadGameModal'));
+    
+    // Join Game
+    let pendingJoinCode = '';
+    
+    document.getElementById('btnJoinGame').addEventListener('click', () => {
+      const code = document.getElementById('joinCodeInput').value.trim();
+      if (!code) {
+        showToast('Enter a game code!');
+        return;
+      }
+      pendingJoinCode = code;
+      document.getElementById('joinPlayerName').value = playerName;
+      openModal('joinNameModal');
+    });
+    
+    document.getElementById('joinCodeInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') document.getElementById('btnJoinGame').click();
+    });
+    
+    document.getElementById('cancelJoin').addEventListener('click', () => closeModal('joinNameModal'));
+    
+    document.getElementById('confirmJoin').addEventListener('click', () => {
+      const playerNameVal = document.getElementById('joinPlayerName').value || 'Player';
+      playerName = playerNameVal;
+      localStorage.setItem('playerName', playerName);
+      closeModal('joinNameModal');
+      joinGame(pendingJoinCode, playerNameVal);
+    });
+    
+    // Update Image
+    document.getElementById('btnUpdateImage').addEventListener('click', () => {
+      openModal('updateImageModal');
+    });
+    
+    document.getElementById('newImageUpload').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const preview = document.getElementById('newImagePreview');
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+      }
+    });
+    
+    document.getElementById('cancelUpdateImage').addEventListener('click', () => closeModal('updateImageModal'));
+    
+    document.getElementById('confirmUpdateImage').addEventListener('click', async () => {
+      const imageFile = document.getElementById('newImageUpload').files[0];
+      if (!imageFile) {
+        showToast('Please select an image!');
+        return;
+      }
+      
+      closeModal('updateImageModal');
+      showToast('Updating image...');
+      
+      try {
+        await updateGameImage(imageFile);
+      } catch (err) {
+        showToast('Failed to update image');
+      }
+    });
+    
+    // Share Code
+    document.getElementById('btnShare').addEventListener('click', () => {
+      if (currentGame) {
+        navigator.clipboard.writeText(currentGame.id);
+        showToast('Game code copied: ' + currentGame.id);
+      }
+    });
+    
+    // Home Button
+    document.getElementById('btnHome').addEventListener('click', () => {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+      currentGame = null;
+      pieceElements.clear();
+      remoteCursors.forEach(c => c.remove());
+      remoteCursors.clear();
+      
+      puzzleCanvas.innerHTML = '<div class="puzzle-board" id="puzzleBoard"></div>';
+      
+      mainMenu.classList.remove('hidden');
+      puzzleContainer.classList.remove('active');
+      gameInfo.classList.remove('active');
+      playersPanel.classList.remove('active');
+      zoomControls.classList.remove('active');
+      minimap.classList.remove('active');
+      
+      document.getElementById('btnHome').style.display = 'none';
+      document.getElementById('btnUpdateImage').style.display = 'none';
+      document.getElementById('btnShare').style.display = 'none';
+    });
+    
+    // Victory
+    document.getElementById('victoryHome').addEventListener('click', () => {
+      document.getElementById('victoryOverlay').classList.remove('active');
+      document.getElementById('btnHome').click();
+    });
+    
+    // Check for game code in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const gameCodeFromUrl = urlParams.get('game');
+    if (gameCodeFromUrl) {
+      document.getElementById('joinCodeInput').value = gameCodeFromUrl;
+      document.getElementById('btnJoinGame').click();
+    }
+  </script>
+</body>
+</html>
