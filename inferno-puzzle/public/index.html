@@ -180,7 +180,6 @@
     .puzzle-piece.dragging { cursor: grabbing; z-index: 1000; filter: drop-shadow(0 0 20px rgba(255, 107, 53, 1)) drop-shadow(5px 10px 20px rgba(0,0,0,0.7)); }
     .puzzle-piece.placed { cursor: default; filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.3)); }
     .puzzle-piece.locked { filter: drop-shadow(0 0 10px var(--lock-color)) drop-shadow(2px 2px 3px rgba(0,0,0,0.5)); }
-    .puzzle-piece.grouped { outline: 2px solid rgba(255, 107, 53, 0.4); outline-offset: -1px; }
     .remote-cursor { position: absolute; pointer-events: none; z-index: 2000; transition: transform 0.1s linear; }
     .cursor-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 10px currentColor; }
     .cursor-name { position: absolute; left: 16px; top: -4px; font-size: 0.75rem; background: currentColor; color: #000; padding: 2px 6px; border-radius: 4px; white-space: nowrap; font-weight: 600; }
@@ -309,18 +308,17 @@
 
   <script>
     // Fire particles
-    function createFireParticles() {
+    (function() {
       const container = document.getElementById('fireParticles');
       for (let i = 0; i < 30; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'ember-particle';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.animationDelay = Math.random() * 4 + 's';
-        particle.style.animationDuration = (3 + Math.random() * 3) + 's';
-        container.appendChild(particle);
+        const p = document.createElement('div');
+        p.className = 'ember-particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.animationDelay = Math.random() * 4 + 's';
+        p.style.animationDuration = (3 + Math.random() * 3) + 's';
+        container.appendChild(p);
       }
-    }
-    createFireParticles();
+    })();
 
     // Global state
     let socket = null, currentGame = null, myPlayerId = null;
@@ -335,75 +333,203 @@
     const puzzleCanvas = document.getElementById('puzzleCanvas');
     const puzzleBoard = document.getElementById('puzzleBoard');
 
-    // Seeded random for consistent jigsaw shapes
-    function seededRandom(seed) {
-      let s = seed;
-      return function() { s = Math.sin(s * 9999) * 10000; return s - Math.floor(s); };
+    // Seeded random for consistent jigsaw shapes across clients
+    function createRandom(seed) {
+      return function() {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        return seed / 0x7fffffff;
+      };
     }
 
-    // Generate piece shapes (tabs/blanks)
+    // Generate truly random piece shapes with varied tabs
     function generatePieceShapes(rows, cols, seed) {
       const shapes = new Map();
-      const random = seededRandom(seed);
+      const rand = createRandom(seed);
+      
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
           const id = row * cols + col;
-          shapes.set(id, {
-            top: row === 0 ? 0 : -shapes.get((row - 1) * cols + col).bottom,
-            right: col === cols - 1 ? 0 : (random() > 0.5 ? 1 : -1),
-            bottom: row === rows - 1 ? 0 : (random() > 0.5 ? 1 : -1),
-            left: col === 0 ? 0 : -shapes.get(row * cols + (col - 1)).right
-          });
+          
+          // Each edge gets random parameters for unique shapes
+          const shape = {
+            top: row === 0 ? null : {
+              dir: -shapes.get((row - 1) * cols + col).bottom.dir,
+              pos: shapes.get((row - 1) * cols + col).bottom.pos,
+              size: shapes.get((row - 1) * cols + col).bottom.size,
+              width: shapes.get((row - 1) * cols + col).bottom.width,
+              curve: shapes.get((row - 1) * cols + col).bottom.curve
+            },
+            right: col === cols - 1 ? null : {
+              dir: rand() > 0.5 ? 1 : -1,        // Tab direction (in/out)
+              pos: 0.35 + rand() * 0.3,          // Position along edge (0.35-0.65)
+              size: 0.18 + rand() * 0.14,        // Tab size (0.18-0.32)
+              width: 0.25 + rand() * 0.2,        // Tab width (0.25-0.45)
+              curve: 0.4 + rand() * 0.4          // Curve intensity (0.4-0.8)
+            },
+            bottom: row === rows - 1 ? null : {
+              dir: rand() > 0.5 ? 1 : -1,
+              pos: 0.35 + rand() * 0.3,
+              size: 0.18 + rand() * 0.14,
+              width: 0.25 + rand() * 0.2,
+              curve: 0.4 + rand() * 0.4
+            },
+            left: col === 0 ? null : {
+              dir: -shapes.get(row * cols + (col - 1)).right.dir,
+              pos: shapes.get(row * cols + (col - 1)).right.pos,
+              size: shapes.get(row * cols + (col - 1)).right.size,
+              width: shapes.get(row * cols + (col - 1)).right.width,
+              curve: shapes.get(row * cols + (col - 1)).right.curve
+            }
+          };
+          shapes.set(id, shape);
         }
       }
       return shapes;
     }
 
-    // Generate SVG path for jigsaw piece
-    function generateJigsawPath(shape, w, h, t) {
-      const n = t * 0.15;
-      let path = 'M 0 0 ';
-      
-      // Top edge
-      if (shape.top === 0) path += `L ${w} 0 `;
-      else {
-        const d = shape.top;
-        path += `L ${w*0.35} 0 C ${w*0.38} ${d*n}, ${w*0.4} ${d*t*0.4}, ${w*0.5-t*0.25} ${d*t*0.4} `;
-        path += `Q ${w*0.5-t*0.4} ${d*t*0.5}, ${w*0.5-t*0.35} ${d*t*0.75} Q ${w*0.5-t*0.25} ${d*t}, ${w*0.5} ${d*t} `;
-        path += `Q ${w*0.5+t*0.25} ${d*t}, ${w*0.5+t*0.35} ${d*t*0.75} Q ${w*0.5+t*0.4} ${d*t*0.5}, ${w*0.5+t*0.25} ${d*t*0.4} `;
-        path += `C ${w*0.6} ${d*t*0.4}, ${w*0.62} ${d*n}, ${w*0.65} 0 L ${w} 0 `;
+    // Draw a single edge with tab/blank
+    function drawEdge(ctx, startX, startY, endX, endY, tabInfo, isHorizontal) {
+      if (!tabInfo) {
+        ctx.lineTo(endX, endY);
+        return;
       }
       
-      // Right edge
-      if (shape.right === 0) path += `L ${w} ${h} `;
-      else {
-        const d = shape.right;
-        path += `L ${w} ${h*0.35} C ${w-d*n} ${h*0.38}, ${w-d*t*0.4} ${h*0.4}, ${w-d*t*0.4} ${h*0.5-t*0.25} `;
-        path += `Q ${w-d*t*0.5} ${h*0.5-t*0.4}, ${w-d*t*0.75} ${h*0.5-t*0.35} Q ${w-d*t} ${h*0.5-t*0.25}, ${w-d*t} ${h*0.5} `;
-        path += `Q ${w-d*t} ${h*0.5+t*0.25}, ${w-d*t*0.75} ${h*0.5+t*0.35} Q ${w-d*t*0.5} ${h*0.5+t*0.4}, ${w-d*t*0.4} ${h*0.5+t*0.25} `;
-        path += `C ${w-d*t*0.4} ${h*0.6}, ${w-d*n} ${h*0.62}, ${w} ${h*0.65} L ${w} ${h} `;
+      const { dir, pos, size, width, curve } = tabInfo;
+      const len = isHorizontal ? (endX - startX) : (endY - startY);
+      const tabLen = Math.abs(len) * size;
+      const tabWidth = Math.abs(len) * width;
+      
+      if (isHorizontal) {
+        const tabX = startX + len * pos;
+        const tabY = startY + dir * tabLen;
+        const halfWidth = tabWidth / 2;
+        
+        // Line to tab start
+        ctx.lineTo(tabX - halfWidth, startY);
+        
+        // Tab curve using bezier
+        const cp1x = tabX - halfWidth * curve;
+        const cp1y = startY + dir * tabLen * 0.2;
+        const cp2x = tabX - halfWidth * 0.8;
+        const cp2y = tabY;
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, tabX, tabY);
+        
+        const cp3x = tabX + halfWidth * 0.8;
+        const cp3y = tabY;
+        const cp4x = tabX + halfWidth * curve;
+        const cp4y = startY + dir * tabLen * 0.2;
+        ctx.bezierCurveTo(cp3x, cp3y, cp4x, cp4y, tabX + halfWidth, startY);
+        
+        // Line to end
+        ctx.lineTo(endX, endY);
+      } else {
+        const tabY = startY + len * pos;
+        const tabX = startX + dir * tabLen;
+        const halfWidth = tabWidth / 2;
+        
+        ctx.lineTo(startX, tabY - halfWidth);
+        
+        const cp1x = startX + dir * tabLen * 0.2;
+        const cp1y = tabY - halfWidth * curve;
+        const cp2x = tabX;
+        const cp2y = tabY - halfWidth * 0.8;
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, tabX, tabY);
+        
+        const cp3x = tabX;
+        const cp3y = tabY + halfWidth * 0.8;
+        const cp4x = startX + dir * tabLen * 0.2;
+        const cp4y = tabY + halfWidth * curve;
+        ctx.bezierCurveTo(cp3x, cp3y, cp4x, cp4y, startX, tabY + halfWidth);
+        
+        ctx.lineTo(endX, endY);
+      }
+    }
+
+    // Create jigsaw piece path
+    function createPiecePath(ctx, shape, w, h) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      
+      // Top edge (left to right)
+      drawEdge(ctx, 0, 0, w, 0, shape.top, true);
+      
+      // Right edge (top to bottom)  
+      drawEdge(ctx, w, 0, w, h, shape.right, false);
+      
+      // Bottom edge (right to left) - reverse direction
+      if (shape.bottom) {
+        const reversed = { ...shape.bottom, dir: -shape.bottom.dir };
+        ctx.lineTo(w, h);
+        // Draw backwards
+        const tempCtx = { pts: [] };
+        drawEdgeReverse(ctx, w, h, 0, h, reversed, true);
+      } else {
+        ctx.lineTo(0, h);
       }
       
-      // Bottom edge
-      if (shape.bottom === 0) path += `L 0 ${h} `;
-      else {
-        const d = -shape.bottom;
-        path += `L ${w*0.65} ${h} C ${w*0.62} ${h+d*n}, ${w*0.6} ${h+d*t*0.4}, ${w*0.5+t*0.25} ${h+d*t*0.4} `;
-        path += `Q ${w*0.5+t*0.4} ${h+d*t*0.5}, ${w*0.5+t*0.35} ${h+d*t*0.75} Q ${w*0.5+t*0.25} ${h+d*t}, ${w*0.5} ${h+d*t} `;
-        path += `Q ${w*0.5-t*0.25} ${h+d*t}, ${w*0.5-t*0.35} ${h+d*t*0.75} Q ${w*0.5-t*0.4} ${h+d*t*0.5}, ${w*0.5-t*0.25} ${h+d*t*0.4} `;
-        path += `C ${w*0.4} ${h+d*t*0.4}, ${w*0.38} ${h+d*n}, ${w*0.35} ${h} L 0 ${h} `;
+      // Left edge (bottom to top) - reverse direction
+      if (shape.left) {
+        const reversed = { ...shape.left, dir: -shape.left.dir };
+        drawEdgeReverse(ctx, 0, h, 0, 0, reversed, false);
+      } else {
+        ctx.lineTo(0, 0);
       }
       
-      // Left edge
-      if (shape.left === 0) path += `L 0 0 `;
-      else {
-        const d = -shape.left;
-        path += `L 0 ${h*0.65} C ${d*n} ${h*0.62}, ${d*t*0.4} ${h*0.6}, ${d*t*0.4} ${h*0.5+t*0.25} `;
-        path += `Q ${d*t*0.5} ${h*0.5+t*0.4}, ${d*t*0.75} ${h*0.5+t*0.35} Q ${d*t} ${h*0.5+t*0.25}, ${d*t} ${h*0.5} `;
-        path += `Q ${d*t} ${h*0.5-t*0.25}, ${d*t*0.75} ${h*0.5-t*0.35} Q ${d*t*0.5} ${h*0.5-t*0.4}, ${d*t*0.4} ${h*0.5-t*0.25} `;
-        path += `C ${d*t*0.4} ${h*0.4}, ${d*n} ${h*0.38}, 0 ${h*0.35} L 0 0 `;
+      ctx.closePath();
+    }
+
+    function drawEdgeReverse(ctx, startX, startY, endX, endY, tabInfo, isHorizontal) {
+      if (!tabInfo) {
+        ctx.lineTo(endX, endY);
+        return;
       }
-      return path + 'Z';
+      
+      const { dir, pos, size, width, curve } = tabInfo;
+      const len = isHorizontal ? (endX - startX) : (endY - startY);
+      const tabLen = Math.abs(isHorizontal ? (startX - endX) : (startY - endY)) * size;
+      const tabWidth = Math.abs(isHorizontal ? (startX - endX) : (startY - endY)) * width;
+      
+      if (isHorizontal) {
+        const tabX = endX + (startX - endX) * (1 - pos);
+        const tabY = startY + dir * tabLen;
+        const halfWidth = tabWidth / 2;
+        
+        ctx.lineTo(tabX + halfWidth, startY);
+        
+        const cp1x = tabX + halfWidth * curve;
+        const cp1y = startY + dir * tabLen * 0.2;
+        const cp2x = tabX + halfWidth * 0.8;
+        const cp2y = tabY;
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, tabX, tabY);
+        
+        const cp3x = tabX - halfWidth * 0.8;
+        const cp3y = tabY;
+        const cp4x = tabX - halfWidth * curve;
+        const cp4y = startY + dir * tabLen * 0.2;
+        ctx.bezierCurveTo(cp3x, cp3y, cp4x, cp4y, tabX - halfWidth, startY);
+        
+        ctx.lineTo(endX, endY);
+      } else {
+        const tabY = endY + (startY - endY) * (1 - pos);
+        const tabX = startX + dir * tabLen;
+        const halfWidth = tabWidth / 2;
+        
+        ctx.lineTo(startX, tabY + halfWidth);
+        
+        const cp1x = startX + dir * tabLen * 0.2;
+        const cp1y = tabY + halfWidth * curve;
+        const cp2x = tabX;
+        const cp2y = tabY + halfWidth * 0.8;
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, tabX, tabY);
+        
+        const cp3x = tabX;
+        const cp3y = tabY - halfWidth * 0.8;
+        const cp4x = startX + dir * tabLen * 0.2;
+        const cp4y = tabY - halfWidth * curve;
+        ctx.bezierCurveTo(cp3x, cp3y, cp4x, cp4y, startX, tabY - halfWidth);
+        
+        ctx.lineTo(endX, endY);
+      }
     }
 
     function showToast(msg) {
@@ -540,7 +666,7 @@
       pieceElements.clear();
       pieceWidth = 800 / currentGame.gridSize.cols;
       pieceHeight = 600 / currentGame.gridSize.rows;
-      tabSize = Math.min(pieceWidth, pieceHeight) * 0.22;
+      tabSize = Math.min(pieceWidth, pieceHeight) * 0.25;
       puzzleBoard.style.width = '800px';
       puzzleBoard.style.height = '600px';
       
@@ -557,27 +683,35 @@
       const shape = pieceShapes.get(piece.id);
       if (!shape || !puzzleImage) return;
       
-      const extW = pieceWidth + tabSize * 2, extH = pieceHeight + tabSize * 2;
+      const extW = pieceWidth + tabSize * 2;
+      const extH = pieceHeight + tabSize * 2;
       const canvas = document.createElement('canvas');
-      canvas.width = extW; canvas.height = extH;
+      canvas.width = extW;
+      canvas.height = extH;
       const ctx = canvas.getContext('2d');
       
-      const path = new Path2D(generateJigsawPath(shape, pieceWidth, pieceHeight, tabSize));
       ctx.translate(tabSize, tabSize);
-      ctx.save();
-      ctx.clip(path);
       
+      // Create clipping path
+      createPiecePath(ctx, shape, pieceWidth, pieceHeight);
+      ctx.save();
+      ctx.clip();
+      
+      // Draw image portion
       const sx = (piece.correctCol / currentGame.gridSize.cols) * puzzleImage.width;
       const sy = (piece.correctRow / currentGame.gridSize.rows) * puzzleImage.height;
       const sw = puzzleImage.width / currentGame.gridSize.cols;
       const sh = puzzleImage.height / currentGame.gridSize.rows;
       ctx.drawImage(puzzleImage, sx, sy, sw, sh, 0, 0, pieceWidth, pieceHeight);
-      
-      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke(path);
       ctx.restore();
       
+      // Draw border
+      createPiecePath(ctx, shape, pieceWidth, pieceHeight);
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      
+      // Create DOM element
       const el = document.createElement('div');
       el.className = 'puzzle-piece' + (piece.isPlaced ? ' placed' : '');
       el.style.width = extW + 'px';
@@ -756,7 +890,6 @@
             
             const expectedX = np.currentX - n.dx, expectedY = np.currentY - n.dy;
             if (Math.abs(p.currentX - expectedX) < snapThreshold && Math.abs(p.currentY - expectedY) < snapThreshold) {
-              // Snap!
               const offsetX = expectedX - p.currentX, offsetY = expectedY - p.currentY;
               groupPiecesData = piecesToCheck.map(gpid => {
                 const gp = currentGame.pieces.find(x => x.id === gpid);
@@ -766,7 +899,6 @@
                 return { id: gpid, x: gp.currentX, y: gp.currentY, placed: false };
               });
 
-              // Merge groups
               const neighborGroupId = pieceToPieceGroup.get(n.id);
               if (draggedGroup && neighborGroupId) {
                 const merged = new Set([...pieceGroups.get(draggedGroup), ...pieceGroups.get(neighborGroupId)]);
