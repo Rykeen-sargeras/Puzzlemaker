@@ -9,23 +9,16 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --fire-orange: #FF6B35;
-      --fire-yellow: #F7C531;
-      --fire-red: #E83F6F;
-      --ember: #FF4500;
-      --coal: #1a1a1a;
-      --ash: #2d2d2d;
-      --smoke: #3d3d3d;
-      --charcoal: #252525;
+      --fire-orange: #FF6B35; --fire-yellow: #F7C531; --fire-red: #E83F6F;
+      --coal: #1a1a1a; --ash: #2d2d2d; --smoke: #3d3d3d; --charcoal: #252525;
     }
     html, body { height: 100%; overflow: hidden; font-family: 'Rajdhani', sans-serif; background: var(--coal); color: #fff; }
     body {
-      background: 
-        radial-gradient(ellipse at bottom, rgba(255, 69, 0, 0.15) 0%, transparent 60%),
+      background: radial-gradient(ellipse at bottom, rgba(255, 69, 0, 0.15) 0%, transparent 60%),
         radial-gradient(ellipse at top right, rgba(247, 197, 49, 0.08) 0%, transparent 40%),
         linear-gradient(180deg, #0d0d0d 0%, #1a1a1a 50%, #1f1510 100%);
     }
-    .fire-particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: hidden; }
+    .fire-particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
     .ember-particle {
       position: absolute; width: 4px; height: 4px; background: var(--fire-orange); border-radius: 50%;
       filter: blur(1px); animation: float-up 4s ease-in infinite;
@@ -85,10 +78,9 @@
       border: 1px solid rgba(255, 107, 53, 0.3); border-radius: 8px; padding: 15px; z-index: 998; display: none;
     }
     .players-panel.active { display: block; }
-    .players-title { font-family: 'Cinzel', serif; font-size: 0.9rem; color: var(--fire-orange); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+    .players-title { font-family: 'Cinzel', serif; font-size: 0.9rem; color: var(--fire-orange); margin-bottom: 10px; text-transform: uppercase; }
     .player-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 0.85rem; }
     .player-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
-    .player-name { flex: 1; }
     .player-you { color: var(--fire-yellow); font-weight: 600; }
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex;
@@ -108,17 +100,17 @@
       margin-bottom: 20px; text-align: center; text-transform: uppercase; letter-spacing: 2px;
     }
     .form-group { margin-bottom: 20px; }
-    .form-label { display: block; font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+    .form-label { display: block; font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-bottom: 6px; text-transform: uppercase; }
     .form-input {
       width: 100%; padding: 12px; background: var(--ash); border: 1px solid rgba(255, 107, 53, 0.3);
-      border-radius: 6px; color: #fff; font-family: 'Rajdhani', sans-serif; font-size: 1rem; transition: all 0.3s ease;
+      border-radius: 6px; color: #fff; font-family: 'Rajdhani', sans-serif; font-size: 1rem;
     }
     .form-input:focus { outline: none; border-color: var(--fire-orange); box-shadow: 0 0 15px rgba(255, 107, 53, 0.3); }
     .form-input::file-selector-button {
       background: var(--fire-orange); color: #fff; border: none; padding: 8px 16px;
       border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif; font-weight: 600; margin-right: 10px;
     }
-    .piece-slider { -webkit-appearance: none; width: 100%; height: 8px; background: var(--ash); border-radius: 4px; outline: none; }
+    .piece-slider { -webkit-appearance: none; width: 100%; height: 8px; background: var(--ash); border-radius: 4px; }
     .piece-slider::-webkit-slider-thumb {
       -webkit-appearance: none; width: 20px; height: 20px;
       background: linear-gradient(135deg, var(--fire-orange), var(--fire-red));
@@ -161,7 +153,6 @@
       border-radius: 6px; color: #fff; font-family: monospace; font-size: 1.1rem;
       text-transform: uppercase; letter-spacing: 2px; text-align: center;
     }
-    .join-input:focus { outline: none; border-color: var(--fire-orange); }
     .puzzle-container { position: fixed; inset: 0; top: 110px; display: none; overflow: hidden; cursor: grab; }
     .puzzle-container.active { display: block; }
     .puzzle-canvas { position: absolute; transform-origin: 0 0; }
@@ -174,18 +165,18 @@
     }
     .puzzle-piece {
       position: absolute; cursor: grab; transition: filter 0.2s ease;
-      filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.5));
+      filter: drop-shadow(2px 3px 4px rgba(0,0,0,0.6));
     }
-    .puzzle-piece:hover { z-index: 100; filter: drop-shadow(0 0 15px rgba(255, 107, 53, 0.8)) drop-shadow(2px 2px 3px rgba(0,0,0,0.5)); }
+    .puzzle-piece:hover { z-index: 100; filter: drop-shadow(0 0 15px rgba(255, 107, 53, 0.8)) drop-shadow(2px 3px 4px rgba(0,0,0,0.6)); }
     .puzzle-piece.dragging { cursor: grabbing; z-index: 1000; filter: drop-shadow(0 0 20px rgba(255, 107, 53, 1)) drop-shadow(5px 10px 20px rgba(0,0,0,0.7)); }
     .puzzle-piece.placed { cursor: default; filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.3)); }
-    .puzzle-piece.locked { filter: drop-shadow(0 0 10px var(--lock-color)) drop-shadow(2px 2px 3px rgba(0,0,0,0.5)); }
+    .puzzle-piece.locked { filter: drop-shadow(0 0 10px var(--lock-color)) drop-shadow(2px 3px 4px rgba(0,0,0,0.6)); }
     .remote-cursor { position: absolute; pointer-events: none; z-index: 2000; transition: transform 0.1s linear; }
     .cursor-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 10px currentColor; }
     .cursor-name { position: absolute; left: 16px; top: -4px; font-size: 0.75rem; background: currentColor; color: #000; padding: 2px 6px; border-radius: 4px; white-space: nowrap; font-weight: 600; }
     .zoom-controls { position: fixed; bottom: 20px; right: 20px; display: none; flex-direction: column; gap: 8px; z-index: 999; }
     .zoom-controls.active { display: flex; }
-    .zoom-btn { width: 40px; height: 40px; background: rgba(0,0,0,0.8); border: 1px solid rgba(255, 107, 53, 0.4); border-radius: 8px; color: var(--fire-orange); font-size: 1.4rem; cursor: pointer; transition: all 0.3s ease; }
+    .zoom-btn { width: 40px; height: 40px; background: rgba(0,0,0,0.8); border: 1px solid rgba(255, 107, 53, 0.4); border-radius: 8px; color: var(--fire-orange); font-size: 1.4rem; cursor: pointer; }
     .zoom-btn:hover { background: var(--fire-orange); color: #fff; }
     .victory-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex;
@@ -204,11 +195,11 @@
     .minimap { position: fixed; bottom: 20px; left: 20px; width: 150px; background: rgba(0,0,0,0.8); border: 1px solid rgba(255, 107, 53, 0.4); border-radius: 8px; padding: 8px; display: none; z-index: 999; }
     .minimap.active { display: block; }
     .minimap-image { width: 100%; border-radius: 4px; opacity: 0.8; }
-    .minimap-title { font-size: 0.7rem; color: rgba(255,255,255,0.5); text-align: center; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+    .minimap-title { font-size: 0.7rem; color: rgba(255,255,255,0.5); text-align: center; margin-top: 4px; text-transform: uppercase; }
     .toast-container { position: fixed; top: 120px; left: 50%; transform: translateX(-50%); z-index: 2500; display: flex; flex-direction: column; gap: 10px; }
     .toast { background: rgba(0,0,0,0.9); border: 1px solid var(--fire-orange); padding: 12px 24px; border-radius: 8px; color: #fff; font-weight: 500; animation: toast-in 0.3s ease, toast-out 0.3s ease 2.7s forwards; box-shadow: 0 0 20px rgba(255, 107, 53, 0.4); }
     @keyframes toast-in { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes toast-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-20px); } }
+    @keyframes toast-out { from { opacity: 1; } to { opacity: 0; } }
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: var(--coal); }
     ::-webkit-scrollbar-thumb { background: var(--fire-orange); border-radius: 4px; }
@@ -227,7 +218,7 @@
   <div class="game-info" id="gameInfo">
     <div class="game-title" id="gameTitle">Loading...</div>
     <div class="progress-container">
-      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width: 0%"></div></div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
       <span class="progress-text" id="progressText">0%</span>
     </div>
     <div class="game-code" id="gameCodeDisplay">--------</div>
@@ -280,16 +271,16 @@
     <div class="modal">
       <h2 class="modal-title">📂 Load Saved Game</h2>
       <div class="form-group"><label class="form-label">Your Name</label><input type="text" class="form-input" id="loadPlayerName" placeholder="Enter your name"></div>
-      <div class="saved-games-list" id="savedGamesList"><div class="no-games">Loading saved games...</div></div>
+      <div class="saved-games-list" id="savedGamesList"><div class="no-games">Loading...</div></div>
       <div class="btn-row"><button class="btn btn-ghost" id="cancelLoadGame">Cancel</button></div>
     </div>
   </div>
   <div class="modal-overlay" id="updateImageModal">
     <div class="modal">
       <h2 class="modal-title">🖼️ Update Puzzle Image</h2>
-      <p style="color: rgba(255,255,255,0.6); margin-bottom: 20px; text-align: center;">Warning: This will reset all puzzle progress!</p>
+      <p style="color:rgba(255,255,255,0.6);margin-bottom:20px;text-align:center;">Warning: This will reset all progress!</p>
       <div class="form-group"><label class="form-label">New Image</label><input type="file" class="form-input" id="newImageUpload" accept="image/*"><img class="image-preview" id="newImagePreview"></div>
-      <div class="btn-row"><button class="btn btn-ghost" id="cancelUpdateImage">Cancel</button><button class="btn btn-fire" id="confirmUpdateImage">Update & Reset</button></div>
+      <div class="btn-row"><button class="btn btn-ghost" id="cancelUpdateImage">Cancel</button><button class="btn btn-fire" id="confirmUpdateImage">Update</button></div>
     </div>
   </div>
   <div class="modal-overlay" id="joinNameModal">
@@ -300,27 +291,27 @@
     </div>
   </div>
   <div class="victory-overlay" id="victoryOverlay">
-    <div class="victory-title">🔥 PUZZLE COMPLETE! 🔥</div>
-    <div class="victory-subtitle">Congratulations to all players!</div>
+    <div class="victory-title">🔥 COMPLETE! 🔥</div>
+    <div class="victory-subtitle">Congratulations!</div>
     <button class="btn btn-fire menu-btn" id="victoryHome">Back to Menu</button>
   </div>
   <div class="toast-container" id="toastContainer"></div>
 
   <script>
     // Fire particles
-    (function() {
-      const container = document.getElementById('fireParticles');
+    (() => {
+      const c = document.getElementById('fireParticles');
       for (let i = 0; i < 30; i++) {
         const p = document.createElement('div');
         p.className = 'ember-particle';
         p.style.left = Math.random() * 100 + '%';
         p.style.animationDelay = Math.random() * 4 + 's';
         p.style.animationDuration = (3 + Math.random() * 3) + 's';
-        container.appendChild(p);
+        c.appendChild(p);
       }
     })();
 
-    // Global state
+    // State
     let socket = null, currentGame = null, myPlayerId = null;
     let playerName = localStorage.getItem('playerName') || '';
     let pieceElements = new Map(), remoteCursors = new Map(), puzzleImage = null;
@@ -333,15 +324,12 @@
     const puzzleCanvas = document.getElementById('puzzleCanvas');
     const puzzleBoard = document.getElementById('puzzleBoard');
 
-    // Seeded random for consistent jigsaw shapes across clients
+    // Seeded random
     function createRandom(seed) {
-      return function() {
-        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-        return seed / 0x7fffffff;
-      };
+      return () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
     }
 
-    // Generate truly random piece shapes with varied tabs
+    // Generate realistic jigsaw shapes like JigsawPlanet
     function generatePieceShapes(rows, cols, seed) {
       const shapes = new Map();
       const rand = createRandom(seed);
@@ -349,37 +337,12 @@
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
           const id = row * cols + col;
-          
-          // Each edge gets random parameters for unique shapes
           const shape = {
-            top: row === 0 ? null : {
-              dir: -shapes.get((row - 1) * cols + col).bottom.dir,
-              pos: shapes.get((row - 1) * cols + col).bottom.pos,
-              size: shapes.get((row - 1) * cols + col).bottom.size,
-              width: shapes.get((row - 1) * cols + col).bottom.width,
-              curve: shapes.get((row - 1) * cols + col).bottom.curve
-            },
-            right: col === cols - 1 ? null : {
-              dir: rand() > 0.5 ? 1 : -1,        // Tab direction (in/out)
-              pos: 0.35 + rand() * 0.3,          // Position along edge (0.35-0.65)
-              size: 0.18 + rand() * 0.14,        // Tab size (0.18-0.32)
-              width: 0.25 + rand() * 0.2,        // Tab width (0.25-0.45)
-              curve: 0.4 + rand() * 0.4          // Curve intensity (0.4-0.8)
-            },
-            bottom: row === rows - 1 ? null : {
-              dir: rand() > 0.5 ? 1 : -1,
-              pos: 0.35 + rand() * 0.3,
-              size: 0.18 + rand() * 0.14,
-              width: 0.25 + rand() * 0.2,
-              curve: 0.4 + rand() * 0.4
-            },
-            left: col === 0 ? null : {
-              dir: -shapes.get(row * cols + (col - 1)).right.dir,
-              pos: shapes.get(row * cols + (col - 1)).right.pos,
-              size: shapes.get(row * cols + (col - 1)).right.size,
-              width: shapes.get(row * cols + (col - 1)).right.width,
-              curve: shapes.get(row * cols + (col - 1)).right.curve
-            }
+            // Each edge: null (flat/edge), or object with tab params
+            top: row === 0 ? null : invertTab(shapes.get((row - 1) * cols + col).bottom),
+            right: col === cols - 1 ? null : generateTab(rand),
+            bottom: row === rows - 1 ? null : generateTab(rand),
+            left: col === 0 ? null : invertTab(shapes.get(row * cols + (col - 1)).right)
           };
           shapes.set(id, shape);
         }
@@ -387,163 +350,135 @@
       return shapes;
     }
 
-    // Draw a single edge with tab/blank
-    function drawEdge(ctx, startX, startY, endX, endY, tabInfo, isHorizontal) {
-      if (!tabInfo) {
-        ctx.lineTo(endX, endY);
-        return;
-      }
+    function generateTab(rand) {
+      // Generate highly varied tab parameters
+      const tabTypes = ['round', 'pointed', 'wide', 'narrow', 'asymmetric'];
+      const type = tabTypes[Math.floor(rand() * tabTypes.length)];
       
-      const { dir, pos, size, width, curve } = tabInfo;
-      const len = isHorizontal ? (endX - startX) : (endY - startY);
-      const tabLen = Math.abs(len) * size;
-      const tabWidth = Math.abs(len) * width;
-      
-      if (isHorizontal) {
-        const tabX = startX + len * pos;
-        const tabY = startY + dir * tabLen;
-        const halfWidth = tabWidth / 2;
-        
-        // Line to tab start
-        ctx.lineTo(tabX - halfWidth, startY);
-        
-        // Tab curve using bezier
-        const cp1x = tabX - halfWidth * curve;
-        const cp1y = startY + dir * tabLen * 0.2;
-        const cp2x = tabX - halfWidth * 0.8;
-        const cp2y = tabY;
-        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, tabX, tabY);
-        
-        const cp3x = tabX + halfWidth * 0.8;
-        const cp3y = tabY;
-        const cp4x = tabX + halfWidth * curve;
-        const cp4y = startY + dir * tabLen * 0.2;
-        ctx.bezierCurveTo(cp3x, cp3y, cp4x, cp4y, tabX + halfWidth, startY);
-        
-        // Line to end
-        ctx.lineTo(endX, endY);
-      } else {
-        const tabY = startY + len * pos;
-        const tabX = startX + dir * tabLen;
-        const halfWidth = tabWidth / 2;
-        
-        ctx.lineTo(startX, tabY - halfWidth);
-        
-        const cp1x = startX + dir * tabLen * 0.2;
-        const cp1y = tabY - halfWidth * curve;
-        const cp2x = tabX;
-        const cp2y = tabY - halfWidth * 0.8;
-        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, tabX, tabY);
-        
-        const cp3x = tabX;
-        const cp3y = tabY + halfWidth * 0.8;
-        const cp4x = startX + dir * tabLen * 0.2;
-        const cp4y = tabY + halfWidth * curve;
-        ctx.bezierCurveTo(cp3x, cp3y, cp4x, cp4y, startX, tabY + halfWidth);
-        
-        ctx.lineTo(endX, endY);
-      }
+      return {
+        out: rand() > 0.5,                    // Tab goes out or in (knob vs socket)
+        offset: (rand() - 0.5) * 0.25,        // Position offset from center (-0.125 to 0.125)
+        neckWidth: 0.12 + rand() * 0.16,      // Neck width (0.12-0.28)
+        headWidth: 0.2 + rand() * 0.25,       // Head width (0.2-0.45)  
+        headHeight: 0.22 + rand() * 0.18,     // How far tab extends (0.22-0.4)
+        neckHeight: 0.06 + rand() * 0.1,      // Neck length before head (0.06-0.16)
+        headSkew: (rand() - 0.5) * 0.15,      // Asymmetry of head (-0.075 to 0.075)
+        curveL: 0.3 + rand() * 0.5,           // Left curve control (0.3-0.8)
+        curveR: 0.3 + rand() * 0.5,           // Right curve control (0.3-0.8)
+        bulge: 0.8 + rand() * 0.5,            // Head bulge factor (0.8-1.3)
+        type: type
+      };
     }
 
-    // Create jigsaw piece path
+    function invertTab(tab) {
+      if (!tab) return null;
+      return { ...tab, out: !tab.out };
+    }
+
+    // Draw a realistic jigsaw tab/socket
+    function drawTab(ctx, x1, y1, x2, y2, tab, flip) {
+      if (!tab) {
+        ctx.lineTo(x2, y2);
+        return;
+      }
+
+      const dx = x2 - x1, dy = y2 - y1;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const nx = -dy / len, ny = dx / len; // Normal vector
+      
+      const dir = (tab.out !== flip) ? 1 : -1;
+      const mid = 0.5 + tab.offset;
+      
+      // Key points along the edge
+      const neckStart = mid - tab.neckWidth / 2;
+      const neckEnd = mid + tab.neckWidth / 2;
+      const headL = mid - tab.headWidth / 2 + tab.headSkew;
+      const headR = mid + tab.headWidth / 2 + tab.headSkew;
+      
+      // Heights
+      const neckH = tab.neckHeight * len * dir;
+      const headH = (tab.neckHeight + tab.headHeight) * len * dir;
+      
+      // Point positions
+      const p = (t) => ({ x: x1 + dx * t, y: y1 + dy * t });
+      const offset = (pt, h) => ({ x: pt.x + nx * h, y: pt.y + ny * h });
+      
+      // Draw to neck start
+      const pNeckStart = p(neckStart);
+      ctx.lineTo(pNeckStart.x, pNeckStart.y);
+      
+      // Curve into neck
+      const pNeckInnerL = offset(p(neckStart + 0.02), neckH * 0.3);
+      const pNeckOuterL = offset(p(headL), neckH);
+      ctx.bezierCurveTo(
+        pNeckStart.x + nx * neckH * 0.1, pNeckStart.y + ny * neckH * 0.1,
+        pNeckInnerL.x, pNeckInnerL.y,
+        pNeckOuterL.x, pNeckOuterL.y
+      );
+      
+      // Curve to head left
+      const pHeadL = offset(p(headL - 0.03), headH * tab.bulge);
+      const pHeadTop = offset(p(mid + tab.headSkew * 0.5), headH * (tab.bulge + 0.1));
+      ctx.bezierCurveTo(
+        pNeckOuterL.x + nx * headH * tab.curveL * 0.5, pNeckOuterL.y + ny * headH * tab.curveL * 0.5,
+        pHeadL.x, pHeadL.y,
+        pHeadTop.x, pHeadTop.y
+      );
+      
+      // Curve to head right
+      const pHeadR = offset(p(headR + 0.03), headH * tab.bulge);
+      const pNeckOuterR = offset(p(headR), neckH);
+      ctx.bezierCurveTo(
+        pHeadR.x, pHeadR.y,
+        pNeckOuterR.x + nx * headH * tab.curveR * 0.5, pNeckOuterR.y + ny * headH * tab.curveR * 0.5,
+        pNeckOuterR.x, pNeckOuterR.y
+      );
+      
+      // Curve out of neck
+      const pNeckInnerR = offset(p(neckEnd - 0.02), neckH * 0.3);
+      const pNeckEnd = p(neckEnd);
+      ctx.bezierCurveTo(
+        pNeckInnerR.x, pNeckInnerR.y,
+        pNeckEnd.x + nx * neckH * 0.1, pNeckEnd.y + ny * neckH * 0.1,
+        pNeckEnd.x, pNeckEnd.y
+      );
+      
+      // Continue to end
+      ctx.lineTo(x2, y2);
+    }
+
+    // Create piece path with varied shapes
     function createPiecePath(ctx, shape, w, h) {
       ctx.beginPath();
       ctx.moveTo(0, 0);
       
       // Top edge (left to right)
-      drawEdge(ctx, 0, 0, w, 0, shape.top, true);
+      drawTab(ctx, 0, 0, w, 0, shape.top, false);
       
-      // Right edge (top to bottom)  
-      drawEdge(ctx, w, 0, w, h, shape.right, false);
+      // Right edge (top to bottom)
+      drawTab(ctx, w, 0, w, h, shape.right, false);
       
-      // Bottom edge (right to left) - reverse direction
-      if (shape.bottom) {
-        const reversed = { ...shape.bottom, dir: -shape.bottom.dir };
-        ctx.lineTo(w, h);
-        // Draw backwards
-        const tempCtx = { pts: [] };
-        drawEdgeReverse(ctx, w, h, 0, h, reversed, true);
-      } else {
-        ctx.lineTo(0, h);
-      }
+      // Bottom edge (right to left)
+      drawTab(ctx, w, h, 0, h, shape.bottom, true);
       
-      // Left edge (bottom to top) - reverse direction
-      if (shape.left) {
-        const reversed = { ...shape.left, dir: -shape.left.dir };
-        drawEdgeReverse(ctx, 0, h, 0, 0, reversed, false);
-      } else {
-        ctx.lineTo(0, 0);
-      }
+      // Left edge (bottom to top)
+      drawTab(ctx, 0, h, 0, 0, shape.left, true);
       
       ctx.closePath();
     }
 
-    function drawEdgeReverse(ctx, startX, startY, endX, endY, tabInfo, isHorizontal) {
-      if (!tabInfo) {
-        ctx.lineTo(endX, endY);
-        return;
-      }
-      
-      const { dir, pos, size, width, curve } = tabInfo;
-      const len = isHorizontal ? (endX - startX) : (endY - startY);
-      const tabLen = Math.abs(isHorizontal ? (startX - endX) : (startY - endY)) * size;
-      const tabWidth = Math.abs(isHorizontal ? (startX - endX) : (startY - endY)) * width;
-      
-      if (isHorizontal) {
-        const tabX = endX + (startX - endX) * (1 - pos);
-        const tabY = startY + dir * tabLen;
-        const halfWidth = tabWidth / 2;
-        
-        ctx.lineTo(tabX + halfWidth, startY);
-        
-        const cp1x = tabX + halfWidth * curve;
-        const cp1y = startY + dir * tabLen * 0.2;
-        const cp2x = tabX + halfWidth * 0.8;
-        const cp2y = tabY;
-        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, tabX, tabY);
-        
-        const cp3x = tabX - halfWidth * 0.8;
-        const cp3y = tabY;
-        const cp4x = tabX - halfWidth * curve;
-        const cp4y = startY + dir * tabLen * 0.2;
-        ctx.bezierCurveTo(cp3x, cp3y, cp4x, cp4y, tabX - halfWidth, startY);
-        
-        ctx.lineTo(endX, endY);
-      } else {
-        const tabY = endY + (startY - endY) * (1 - pos);
-        const tabX = startX + dir * tabLen;
-        const halfWidth = tabWidth / 2;
-        
-        ctx.lineTo(startX, tabY + halfWidth);
-        
-        const cp1x = startX + dir * tabLen * 0.2;
-        const cp1y = tabY + halfWidth * curve;
-        const cp2x = tabX;
-        const cp2y = tabY + halfWidth * 0.8;
-        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, tabX, tabY);
-        
-        const cp3x = tabX;
-        const cp3y = tabY - halfWidth * 0.8;
-        const cp4x = startX + dir * tabLen * 0.2;
-        const cp4y = tabY - halfWidth * curve;
-        ctx.bezierCurveTo(cp3x, cp3y, cp4x, cp4y, startX, tabY - halfWidth);
-        
-        ctx.lineTo(endX, endY);
-      }
-    }
-
     function showToast(msg) {
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      toast.textContent = msg;
-      document.getElementById('toastContainer').appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.textContent = msg;
+      document.getElementById('toastContainer').appendChild(t);
+      setTimeout(() => t.remove(), 3000);
     }
 
     function openModal(id) { document.getElementById(id).classList.add('active'); }
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
-    // Socket connection
+    // Socket
     function connectSocket() {
       socket = io();
       
@@ -628,7 +563,7 @@
       if (!cursor && player) {
         cursor = document.createElement('div');
         cursor.className = 'remote-cursor';
-        cursor.innerHTML = `<div class="cursor-dot" style="background:${player.color};color:${player.color}"></div><div class="cursor-name" style="background:${player.color}">${player.name}</div>`;
+        cursor.innerHTML = `<div class="cursor-dot" style="background:${player.color}"></div><div class="cursor-name" style="background:${player.color}">${player.name}</div>`;
         puzzleCanvas.appendChild(cursor);
         remoteCursors.set(playerId, cursor);
       }
@@ -657,7 +592,7 @@
 
     function renderPlayers() {
       document.getElementById('playersList').innerHTML = currentGame.players.map(p =>
-        `<div class="player-item"><div class="player-dot" style="background:${p.color}"></div><span class="player-name ${p.id===myPlayerId?'player-you':''}">${p.name}${p.id===myPlayerId?' (You)':''}</span></div>`
+        `<div class="player-item"><div class="player-dot" style="background:${p.color}"></div><span class="${p.id===myPlayerId?'player-you':''}">${p.name}${p.id===myPlayerId?' (You)':''}</span></div>`
       ).join('');
     }
 
@@ -666,7 +601,7 @@
       pieceElements.clear();
       pieceWidth = 800 / currentGame.gridSize.cols;
       pieceHeight = 600 / currentGame.gridSize.rows;
-      tabSize = Math.min(pieceWidth, pieceHeight) * 0.25;
+      tabSize = Math.min(pieceWidth, pieceHeight) * 0.3;
       puzzleBoard.style.width = '800px';
       puzzleBoard.style.height = '600px';
       
@@ -692,12 +627,12 @@
       
       ctx.translate(tabSize, tabSize);
       
-      // Create clipping path
+      // Create and clip to piece shape
       createPiecePath(ctx, shape, pieceWidth, pieceHeight);
       ctx.save();
       ctx.clip();
       
-      // Draw image portion
+      // Draw image
       const sx = (piece.correctCol / currentGame.gridSize.cols) * puzzleImage.width;
       const sy = (piece.correctRow / currentGame.gridSize.rows) * puzzleImage.height;
       const sw = puzzleImage.width / currentGame.gridSize.cols;
@@ -705,13 +640,17 @@
       ctx.drawImage(puzzleImage, sx, sy, sw, sh, 0, 0, pieceWidth, pieceHeight);
       ctx.restore();
       
-      // Draw border
+      // Draw border with slight 3D effect
       createPiecePath(ctx, shape, pieceWidth, pieceHeight);
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 2;
       ctx.stroke();
       
-      // Create DOM element
+      createPiecePath(ctx, shape, pieceWidth, pieceHeight);
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      
       const el = document.createElement('div');
       el.className = 'puzzle-piece' + (piece.isPlaced ? ' placed' : '');
       el.style.width = extW + 'px';
@@ -752,7 +691,7 @@
       puzzleCanvas.style.transform = `translate(${canvasX}px,${canvasY}px) scale(${canvasScale})`;
     }
 
-    // Canvas pan
+    // Canvas pan/zoom
     puzzleContainer.addEventListener('mousedown', (e) => {
       if (e.target === puzzleContainer || e.target === puzzleCanvas || e.target === puzzleBoard) {
         isDraggingCanvas = true; lastMouseX = e.clientX; lastMouseY = e.clientY;
@@ -773,7 +712,6 @@
     });
 
     document.addEventListener('mouseup', () => { isDraggingCanvas = false; puzzleContainer.style.cursor = 'grab'; });
-
     puzzleContainer.addEventListener('wheel', (e) => {
       e.preventDefault();
       canvasScale = Math.max(0.3, Math.min(3, canvasScale * (e.deltaY > 0 ? 0.9 : 1.1)));
@@ -784,20 +722,20 @@
     document.getElementById('zoomOut').onclick = () => { canvasScale = Math.max(0.3, canvasScale / 1.2); updateCanvasTransform(); };
     document.getElementById('zoomReset').onclick = () => { canvasScale = 0.8; canvasX = 50; canvasY = 20; updateCanvasTransform(); };
 
-    // Get neighboring pieces
+    // Neighbors
     function getNeighbors(pieceId) {
       const p = currentGame.pieces.find(x => x.id === pieceId);
       const { correctRow: row, correctCol: col } = p;
       const { cols, rows } = currentGame.gridSize;
-      const neighbors = [];
-      if (row > 0) neighbors.push({ id: (row-1)*cols+col, dx: 0, dy: -pieceHeight });
-      if (row < rows-1) neighbors.push({ id: (row+1)*cols+col, dx: 0, dy: pieceHeight });
-      if (col > 0) neighbors.push({ id: row*cols+(col-1), dx: -pieceWidth, dy: 0 });
-      if (col < cols-1) neighbors.push({ id: row*cols+(col+1), dx: pieceWidth, dy: 0 });
-      return neighbors;
+      const n = [];
+      if (row > 0) n.push({ id: (row-1)*cols+col, dx: 0, dy: -pieceHeight });
+      if (row < rows-1) n.push({ id: (row+1)*cols+col, dx: 0, dy: pieceHeight });
+      if (col > 0) n.push({ id: row*cols+(col-1), dx: -pieceWidth, dy: 0 });
+      if (col < cols-1) n.push({ id: row*cols+(col+1), dx: pieceWidth, dy: 0 });
+      return n;
     }
 
-    // Piece dragging
+    // Piece drag
     function onPieceMouseDown(e) {
       e.stopPropagation();
       const pieceId = parseInt(e.target.dataset.pieceId);
@@ -812,9 +750,8 @@
       dragOffsetX = (e.clientX - rect.left) / canvasScale;
       dragOffsetY = (e.clientY - rect.top) / canvasScale;
 
-      if (draggedGroup) {
-        pieceGroups.get(draggedGroup).forEach(pid => pieceElements.get(pid)?.classList.add('dragging'));
-      } else el.classList.add('dragging');
+      if (draggedGroup) pieceGroups.get(draggedGroup).forEach(pid => pieceElements.get(pid)?.classList.add('dragging'));
+      else el.classList.add('dragging');
 
       socket.emit('piece:grab', { pieceId, groupId: draggedGroup });
       document.addEventListener('mousemove', onPieceMouseMove);
@@ -829,15 +766,15 @@
       const dx = x - draggedPiece.currentX, dy = y - draggedPiece.currentY;
 
       if (draggedGroup) {
-        const groupData = [];
+        const gd = [];
         pieceGroups.get(draggedGroup).forEach(pid => {
           const p = currentGame.pieces.find(x => x.id === pid);
           p.currentX += dx; p.currentY += dy;
           const el = pieceElements.get(pid);
           if (el) { el.style.left = (p.currentX - tabSize) + 'px'; el.style.top = (p.currentY - tabSize) + 'px'; }
-          groupData.push({ id: pid, x: p.currentX, y: p.currentY });
+          gd.push({ id: pid, x: p.currentX, y: p.currentY });
         });
-        socket.emit('piece:move', { pieceId: draggedPiece.id, x: draggedPiece.currentX, y: draggedPiece.currentY, groupId: draggedGroup, groupPieces: groupData });
+        socket.emit('piece:move', { pieceId: draggedPiece.id, x: draggedPiece.currentX, y: draggedPiece.currentY, groupId: draggedGroup, groupPieces: gd });
       } else {
         draggedPiece.currentX = x; draggedPiece.currentY = y;
         const el = pieceElements.get(draggedPiece.id);
@@ -856,7 +793,6 @@
       const threshold = Math.min(pieceWidth, pieceHeight) * 0.35;
       let placed = false, newGroup = null, groupPiecesData = null;
 
-      // Check board placement
       const piecesToCheck = draggedGroup ? Array.from(pieceGroups.get(draggedGroup)) : [draggedPiece.id];
       let allCanPlace = piecesToCheck.every(pid => {
         const p = currentGame.pieces.find(x => x.id === pid);
@@ -876,44 +812,41 @@
           return { id: pid, x: p.currentX, y: p.currentY, placed: true };
         });
       } else {
-        // Check piece-to-piece snapping
         const snapThreshold = Math.min(pieceWidth, pieceHeight) * 0.3;
         
         for (const pid of piecesToCheck) {
           const p = currentGame.pieces.find(x => x.id === pid);
-          const neighbors = getNeighbors(pid);
-          
-          for (const n of neighbors) {
+          for (const n of getNeighbors(pid)) {
             if (piecesToCheck.includes(n.id)) continue;
             const np = currentGame.pieces.find(x => x.id === n.id);
             if (!np || np.isPlaced) continue;
             
             const expectedX = np.currentX - n.dx, expectedY = np.currentY - n.dy;
             if (Math.abs(p.currentX - expectedX) < snapThreshold && Math.abs(p.currentY - expectedY) < snapThreshold) {
-              const offsetX = expectedX - p.currentX, offsetY = expectedY - p.currentY;
+              const ox = expectedX - p.currentX, oy = expectedY - p.currentY;
               groupPiecesData = piecesToCheck.map(gpid => {
                 const gp = currentGame.pieces.find(x => x.id === gpid);
-                gp.currentX += offsetX; gp.currentY += offsetY;
+                gp.currentX += ox; gp.currentY += oy;
                 const el = pieceElements.get(gpid);
                 if (el) { el.style.left = (gp.currentX - tabSize) + 'px'; el.style.top = (gp.currentY - tabSize) + 'px'; }
                 return { id: gpid, x: gp.currentX, y: gp.currentY, placed: false };
               });
 
-              const neighborGroupId = pieceToPieceGroup.get(n.id);
-              if (draggedGroup && neighborGroupId) {
-                const merged = new Set([...pieceGroups.get(draggedGroup), ...pieceGroups.get(neighborGroupId)]);
+              const ngid = pieceToPieceGroup.get(n.id);
+              if (draggedGroup && ngid) {
+                const merged = new Set([...pieceGroups.get(draggedGroup), ...pieceGroups.get(ngid)]);
                 pieceGroups.set(draggedGroup, merged);
-                pieceGroups.delete(neighborGroupId);
+                pieceGroups.delete(ngid);
                 merged.forEach(id => pieceToPieceGroup.set(id, draggedGroup));
                 newGroup = { pieceIds: Array.from(merged) };
               } else if (draggedGroup) {
                 pieceGroups.get(draggedGroup).add(n.id);
                 pieceToPieceGroup.set(n.id, draggedGroup);
                 newGroup = { pieceIds: Array.from(pieceGroups.get(draggedGroup)) };
-              } else if (neighborGroupId) {
-                pieceGroups.get(neighborGroupId).add(draggedPiece.id);
-                pieceToPieceGroup.set(draggedPiece.id, neighborGroupId);
-                newGroup = { pieceIds: Array.from(pieceGroups.get(neighborGroupId)) };
+              } else if (ngid) {
+                pieceGroups.get(ngid).add(draggedPiece.id);
+                pieceToPieceGroup.set(draggedPiece.id, ngid);
+                newGroup = { pieceIds: Array.from(pieceGroups.get(ngid)) };
               } else {
                 const gid = nextGroupId++;
                 pieceGroups.set(gid, new Set([draggedPiece.id, n.id]));
@@ -946,10 +879,10 @@
       document.removeEventListener('mouseup', onPieceMouseUp);
     }
 
-    // Touch support
+    // Touch
     function onPieceTouchStart(e) {
       e.preventDefault();
-      const touch = e.touches[0];
+      const t = e.touches[0];
       const pieceId = parseInt(e.target.dataset.pieceId);
       const piece = currentGame.pieces.find(p => p.id === pieceId);
       if (piece.isPlaced || (piece.lockedBy && piece.lockedBy !== myPlayerId)) return;
@@ -958,8 +891,8 @@
       draggedGroup = pieceToPieceGroup.get(pieceId) || null;
       const el = pieceElements.get(pieceId);
       const rect = el.getBoundingClientRect();
-      dragOffsetX = (touch.clientX - rect.left) / canvasScale;
-      dragOffsetY = (touch.clientY - rect.top) / canvasScale;
+      dragOffsetX = (t.clientX - rect.left) / canvasScale;
+      dragOffsetY = (t.clientY - rect.top) / canvasScale;
 
       if (draggedGroup) pieceGroups.get(draggedGroup).forEach(pid => pieceElements.get(pid)?.classList.add('dragging'));
       else el.classList.add('dragging');
@@ -972,22 +905,22 @@
     function onPieceTouchMove(e) {
       e.preventDefault();
       if (!draggedPiece) return;
-      const touch = e.touches[0];
+      const t = e.touches[0];
       const rect = puzzleCanvas.getBoundingClientRect();
-      const x = (touch.clientX - rect.left) / canvasScale - dragOffsetX + tabSize;
-      const y = (touch.clientY - rect.top) / canvasScale - dragOffsetY + tabSize;
+      const x = (t.clientX - rect.left) / canvasScale - dragOffsetX + tabSize;
+      const y = (t.clientY - rect.top) / canvasScale - dragOffsetY + tabSize;
       const dx = x - draggedPiece.currentX, dy = y - draggedPiece.currentY;
 
       if (draggedGroup) {
-        const groupData = [];
+        const gd = [];
         pieceGroups.get(draggedGroup).forEach(pid => {
           const p = currentGame.pieces.find(x => x.id === pid);
           p.currentX += dx; p.currentY += dy;
           const el = pieceElements.get(pid);
           if (el) { el.style.left = (p.currentX - tabSize) + 'px'; el.style.top = (p.currentY - tabSize) + 'px'; }
-          groupData.push({ id: pid, x: p.currentX, y: p.currentY });
+          gd.push({ id: pid, x: p.currentX, y: p.currentY });
         });
-        socket.emit('piece:move', { pieceId: draggedPiece.id, x: draggedPiece.currentX, y: draggedPiece.currentY, groupId: draggedGroup, groupPieces: groupData });
+        socket.emit('piece:move', { pieceId: draggedPiece.id, x: draggedPiece.currentX, y: draggedPiece.currentY, groupId: draggedGroup, groupPieces: gd });
       } else {
         draggedPiece.currentX = x; draggedPiece.currentY = y;
         const el = pieceElements.get(draggedPiece.id);
@@ -1002,13 +935,13 @@
       document.removeEventListener('touchend', onPieceTouchEnd);
     }
 
-    // API functions
+    // API
     async function createNewGame(name, pName, imageFile, pieceCount) {
-      const formData = new FormData();
-      formData.append('gameName', name);
-      formData.append('pieceCount', pieceCount);
-      formData.append('image', imageFile);
-      const res = await fetch('/api/games', { method: 'POST', body: formData });
+      const fd = new FormData();
+      fd.append('gameName', name);
+      fd.append('pieceCount', pieceCount);
+      fd.append('image', imageFile);
+      const res = await fetch('/api/games', { method: 'POST', body: fd });
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
       connectSocket();
@@ -1020,7 +953,7 @@
       setTimeout(() => socket.emit('game:join', { gameId: gameId.toUpperCase(), playerName: pName }), 500);
     }
 
-    // Event handlers
+    // UI Events
     document.getElementById('btnNewGame').onclick = () => { document.getElementById('playerName').value = playerName; openModal('newGameModal'); };
     document.getElementById('pieceSlider').oninput = (e) => document.getElementById('pieceCountDisplay').textContent = e.target.value + ' pieces';
     document.getElementById('imageUpload').onchange = (e) => {
@@ -1033,9 +966,9 @@
       const imageFile = document.getElementById('imageUpload').files[0];
       if (!imageFile) { showToast('Select an image!'); return; }
       playerName = pName; localStorage.setItem('playerName', playerName);
-      closeModal('newGameModal'); showToast('Creating puzzle...');
+      closeModal('newGameModal'); showToast('Creating...');
       try { await createNewGame(name, pName, imageFile, document.getElementById('pieceSlider').value); }
-      catch { showToast('Failed to create'); }
+      catch { showToast('Failed'); }
     };
 
     document.getElementById('btnLoadGame').onclick = async () => {
@@ -1054,7 +987,7 @@
             joinGame(item.dataset.gameId, playerName);
           };
         });
-      } catch { document.getElementById('savedGamesList').innerHTML = '<div class="no-games">Failed to load</div>'; }
+      } catch { document.getElementById('savedGamesList').innerHTML = '<div class="no-games">Failed</div>'; }
     };
     document.getElementById('cancelLoadGame').onclick = () => closeModal('loadGameModal');
 
@@ -1084,8 +1017,8 @@
       const imageFile = document.getElementById('newImageUpload').files[0];
       if (!imageFile) { showToast('Select an image!'); return; }
       closeModal('updateImageModal'); showToast('Updating...');
-      const formData = new FormData(); formData.append('image', imageFile);
-      try { await fetch(`/api/games/${currentGame.id}/image`, { method: 'POST', body: formData }); }
+      const fd = new FormData(); fd.append('image', imageFile);
+      try { await fetch(`/api/games/${currentGame.id}/image`, { method: 'POST', body: fd }); }
       catch { showToast('Failed'); }
     };
 
@@ -1114,7 +1047,7 @@
       document.getElementById('btnHome').click();
     };
 
-    // Check URL for game code
+    // URL game code
     const urlGame = new URLSearchParams(location.search).get('game');
     if (urlGame) { document.getElementById('joinCodeInput').value = urlGame; document.getElementById('btnJoinGame').click(); }
   </script>
