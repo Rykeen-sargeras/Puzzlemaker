@@ -91,7 +91,7 @@ app.post('/api/games', upload.single('image'), (req, res) => {
     
     if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
 
-    const count = Math.min(1000, Math.max(100, parseInt(pieceCount)));
+    const count = Math.min(250, Math.max(25, parseInt(pieceCount)));
     const aspectRatio = 4/3;
     const cols = Math.round(Math.sqrt(count * aspectRatio));
     const rows = Math.round(count / cols);

@@ -261,8 +261,8 @@
       <div class="form-group"><label class="form-label">Upload Image</label><input type="file" class="form-input" id="imageUpload" accept="image/*"><img class="image-preview" id="imagePreview"></div>
       <div class="form-group">
         <label class="form-label">Number of Pieces</label>
-        <input type="range" class="piece-slider" id="pieceSlider" min="100" max="1000" value="400" step="50">
-        <div class="piece-count-display" id="pieceCountDisplay">400 pieces</div>
+        <input type="range" class="piece-slider" id="pieceSlider" min="25" max="250" value="100" step="25">
+        <div class="piece-count-display" id="pieceCountDisplay">100 pieces</div>
       </div>
       <div class="btn-row"><button class="btn btn-ghost" id="cancelNewGame">Cancel</button><button class="btn btn-fire" id="createGame">Create Puzzle</button></div>
     </div>
@@ -315,7 +315,7 @@
     let socket = null, currentGame = null, myPlayerId = null;
     let playerName = localStorage.getItem('playerName') || '';
     let pieceElements = new Map(), remoteCursors = new Map(), puzzleImage = null;
-    let pieceShapes = new Map(), pieceGroups = new Map(), pieceToPieceGroup = new Map();
+    let edgeCache = null, pieceGroups = new Map(), pieceToPieceGroup = new Map();
     let nextGroupId = 1, pieceWidth = 0, pieceHeight = 0, tabSize = 0;
     let canvasScale = 1, canvasX = 0, canvasY = 0, isDraggingCanvas = false, lastMouseX = 0, lastMouseY = 0;
     let draggedPiece = null, draggedGroup = null, dragOffsetX = 0, dragOffsetY = 0;
@@ -324,145 +324,158 @@
     const puzzleCanvas = document.getElementById('puzzleCanvas');
     const puzzleBoard = document.getElementById('puzzleBoard');
 
-    // Seeded random
+    // Seeded random number generator
     function createRandom(seed) {
       return () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
     }
 
-    // Generate realistic jigsaw shapes like JigsawPlanet
-    function generatePieceShapes(rows, cols, seed) {
-      const shapes = new Map();
+    // Generate edge curve using B-spline approach from Inventables
+    // Returns array of points representing a knobby edge
+    function generateEdgeCurve(rand) {
+      // Randomize control point positions within good regions
+      // Based on: http://dev.inventables.com/2016/02/26/generating-svg-jigsaw-puzzles.html
+      const randomBetween = (min, max) => rand() * (max - min) + min;
+      
+      // Baseline (neck) region offsets
+      const baseL = { xMin: 0.38, xMax: 0.45, yMin: -0.12, yMax: 0.02 };
+      const baseR = { xMin: 0.55, xMax: 0.62, yMin: -0.12, yMax: 0.02 };
+      
+      // Upper (head) region offsets  
+      const upperL = { xMin: 0.20, xMax: 0.35, yMin: 0.20, yMax: 0.38 };
+      const upperR = { xMin: 0.65, xMax: 0.80, yMin: 0.20, yMax: 0.38 };
+      
+      // Direction: 1 = tab out, -1 = tab in (socket)
+      const dir = rand() < 0.5 ? 1 : -1;
+      
+      // Generate 6 control points for B-spline
+      const points = [
+        [0, 0],
+        [randomBetween(baseL.xMin, baseL.xMax), randomBetween(baseL.yMin, baseL.yMax) * dir],
+        [randomBetween(upperL.xMin, upperL.xMax), randomBetween(upperL.yMin, upperL.yMax) * dir],
+        [randomBetween(upperR.xMin, upperR.xMax), randomBetween(upperR.yMin, upperR.yMax) * dir],
+        [randomBetween(baseR.xMin, baseR.xMax), randomBetween(baseR.yMin, baseR.yMax) * dir],
+        [1, 0]
+      ];
+      
+      return { points, dir };
+    }
+
+    // Generate all edges for the puzzle grid
+    function generateEdges(rows, cols, seed) {
       const rand = createRandom(seed);
       
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          const id = row * cols + col;
-          const shape = {
-            // Each edge: null (flat/edge), or object with tab params
-            top: row === 0 ? null : invertTab(shapes.get((row - 1) * cols + col).bottom),
-            right: col === cols - 1 ? null : generateTab(rand),
-            bottom: row === rows - 1 ? null : generateTab(rand),
-            left: col === 0 ? null : invertTab(shapes.get(row * cols + (col - 1)).right)
-          };
-          shapes.set(id, shape);
+      // Horizontal edges (rows + 1 sets of cols edges)
+      const horizontal = [];
+      for (let r = 0; r <= rows; r++) {
+        const row = [];
+        for (let c = 0; c < cols; c++) {
+          if (r === 0 || r === rows) {
+            // Flat edge (border)
+            row.push({ points: [[0, 0], [1, 0]], dir: 0 });
+          } else {
+            row.push(generateEdgeCurve(rand));
+          }
         }
+        horizontal.push(row);
       }
-      return shapes;
-    }
-
-    function generateTab(rand) {
-      // Generate highly varied tab parameters
-      const tabTypes = ['round', 'pointed', 'wide', 'narrow', 'asymmetric'];
-      const type = tabTypes[Math.floor(rand() * tabTypes.length)];
       
-      return {
-        out: rand() > 0.5,                    // Tab goes out or in (knob vs socket)
-        offset: (rand() - 0.5) * 0.25,        // Position offset from center (-0.125 to 0.125)
-        neckWidth: 0.12 + rand() * 0.16,      // Neck width (0.12-0.28)
-        headWidth: 0.2 + rand() * 0.25,       // Head width (0.2-0.45)  
-        headHeight: 0.22 + rand() * 0.18,     // How far tab extends (0.22-0.4)
-        neckHeight: 0.06 + rand() * 0.1,      // Neck length before head (0.06-0.16)
-        headSkew: (rand() - 0.5) * 0.15,      // Asymmetry of head (-0.075 to 0.075)
-        curveL: 0.3 + rand() * 0.5,           // Left curve control (0.3-0.8)
-        curveR: 0.3 + rand() * 0.5,           // Right curve control (0.3-0.8)
-        bulge: 0.8 + rand() * 0.5,            // Head bulge factor (0.8-1.3)
-        type: type
-      };
-    }
-
-    function invertTab(tab) {
-      if (!tab) return null;
-      return { ...tab, out: !tab.out };
-    }
-
-    // Draw a realistic jigsaw tab/socket
-    function drawTab(ctx, x1, y1, x2, y2, tab, flip) {
-      if (!tab) {
-        ctx.lineTo(x2, y2);
-        return;
+      // Vertical edges (rows sets of cols + 1 edges)
+      const vertical = [];
+      for (let r = 0; r < rows; r++) {
+        const row = [];
+        for (let c = 0; c <= cols; c++) {
+          if (c === 0 || c === cols) {
+            // Flat edge (border)
+            row.push({ points: [[0, 0], [1, 0]], dir: 0 });
+          } else {
+            row.push(generateEdgeCurve(rand));
+          }
+        }
+        vertical.push(row);
       }
-
-      const dx = x2 - x1, dy = y2 - y1;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      const nx = -dy / len, ny = dx / len; // Normal vector
       
-      const dir = (tab.out !== flip) ? 1 : -1;
-      const mid = 0.5 + tab.offset;
-      
-      // Key points along the edge
-      const neckStart = mid - tab.neckWidth / 2;
-      const neckEnd = mid + tab.neckWidth / 2;
-      const headL = mid - tab.headWidth / 2 + tab.headSkew;
-      const headR = mid + tab.headWidth / 2 + tab.headSkew;
-      
-      // Heights
-      const neckH = tab.neckHeight * len * dir;
-      const headH = (tab.neckHeight + tab.headHeight) * len * dir;
-      
-      // Point positions
-      const p = (t) => ({ x: x1 + dx * t, y: y1 + dy * t });
-      const offset = (pt, h) => ({ x: pt.x + nx * h, y: pt.y + ny * h });
-      
-      // Draw to neck start
-      const pNeckStart = p(neckStart);
-      ctx.lineTo(pNeckStart.x, pNeckStart.y);
-      
-      // Curve into neck
-      const pNeckInnerL = offset(p(neckStart + 0.02), neckH * 0.3);
-      const pNeckOuterL = offset(p(headL), neckH);
-      ctx.bezierCurveTo(
-        pNeckStart.x + nx * neckH * 0.1, pNeckStart.y + ny * neckH * 0.1,
-        pNeckInnerL.x, pNeckInnerL.y,
-        pNeckOuterL.x, pNeckOuterL.y
-      );
-      
-      // Curve to head left
-      const pHeadL = offset(p(headL - 0.03), headH * tab.bulge);
-      const pHeadTop = offset(p(mid + tab.headSkew * 0.5), headH * (tab.bulge + 0.1));
-      ctx.bezierCurveTo(
-        pNeckOuterL.x + nx * headH * tab.curveL * 0.5, pNeckOuterL.y + ny * headH * tab.curveL * 0.5,
-        pHeadL.x, pHeadL.y,
-        pHeadTop.x, pHeadTop.y
-      );
-      
-      // Curve to head right
-      const pHeadR = offset(p(headR + 0.03), headH * tab.bulge);
-      const pNeckOuterR = offset(p(headR), neckH);
-      ctx.bezierCurveTo(
-        pHeadR.x, pHeadR.y,
-        pNeckOuterR.x + nx * headH * tab.curveR * 0.5, pNeckOuterR.y + ny * headH * tab.curveR * 0.5,
-        pNeckOuterR.x, pNeckOuterR.y
-      );
-      
-      // Curve out of neck
-      const pNeckInnerR = offset(p(neckEnd - 0.02), neckH * 0.3);
-      const pNeckEnd = p(neckEnd);
-      ctx.bezierCurveTo(
-        pNeckInnerR.x, pNeckInnerR.y,
-        pNeckEnd.x + nx * neckH * 0.1, pNeckEnd.y + ny * neckH * 0.1,
-        pNeckEnd.x, pNeckEnd.y
-      );
-      
-      // Continue to end
-      ctx.lineTo(x2, y2);
+      return { horizontal, vertical };
     }
 
-    // Create piece path with varied shapes
-    function createPiecePath(ctx, shape, w, h) {
+    // Convert B-spline control points to smooth curve using Catmull-Rom
+    function bsplineToBezier(points, scale, offsetX, offsetY, horizontal, flip) {
+      const result = [];
+      const n = points.length;
+      
+      for (let i = 0; i < n - 1; i++) {
+        const p0 = points[Math.max(0, i - 1)];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[Math.min(n - 1, i + 2)];
+        
+        // Catmull-Rom to Bezier conversion
+        const cp1 = [
+          p1[0] + (p2[0] - p0[0]) / 6,
+          p1[1] + (p2[1] - p0[1]) / 6
+        ];
+        const cp2 = [
+          p2[0] - (p3[0] - p1[0]) / 6,
+          p2[1] - (p3[1] - p1[1]) / 6
+        ];
+        
+        // Transform points based on orientation
+        const transform = (pt) => {
+          let x, y;
+          if (horizontal) {
+            x = (flip ? 1 - pt[0] : pt[0]) * scale + offsetX;
+            y = (flip ? -pt[1] : pt[1]) * scale + offsetY;
+          } else {
+            x = (flip ? -pt[1] : pt[1]) * scale + offsetX;
+            y = (flip ? 1 - pt[0] : pt[0]) * scale + offsetY;
+          }
+          return [x, y];
+        };
+        
+        result.push({
+          start: transform(p1),
+          cp1: transform(cp1),
+          cp2: transform(cp2),
+          end: transform(p2)
+        });
+      }
+      
+      return result;
+    }
+
+    // Draw piece path using the edge curves
+    function createPiecePath(ctx, row, col, w, h, edges) {
+      const { horizontal, vertical } = edges;
+      
       ctx.beginPath();
       ctx.moveTo(0, 0);
       
       // Top edge (left to right)
-      drawTab(ctx, 0, 0, w, 0, shape.top, false);
+      const topEdge = horizontal[row][col];
+      const topCurves = bsplineToBezier(topEdge.points, w, 0, 0, true, false);
+      for (const c of topCurves) {
+        ctx.bezierCurveTo(c.cp1[0], c.cp1[1], c.cp2[0], c.cp2[1], c.end[0], c.end[1]);
+      }
       
       // Right edge (top to bottom)
-      drawTab(ctx, w, 0, w, h, shape.right, false);
+      const rightEdge = vertical[row][col + 1];
+      const rightCurves = bsplineToBezier(rightEdge.points, h, w, 0, false, false);
+      for (const c of rightCurves) {
+        ctx.bezierCurveTo(c.cp1[0], c.cp1[1], c.cp2[0], c.cp2[1], c.end[0], c.end[1]);
+      }
       
       // Bottom edge (right to left)
-      drawTab(ctx, w, h, 0, h, shape.bottom, true);
+      const bottomEdge = horizontal[row + 1][col];
+      const bottomCurves = bsplineToBezier(bottomEdge.points, w, 0, h, true, true);
+      for (const c of bottomCurves) {
+        ctx.bezierCurveTo(c.cp1[0], c.cp1[1], c.cp2[0], c.cp2[1], c.end[0], c.end[1]);
+      }
       
       // Left edge (bottom to top)
-      drawTab(ctx, 0, h, 0, 0, shape.left, true);
+      const leftEdge = vertical[row][col];
+      const leftCurves = bsplineToBezier(leftEdge.points, h, 0, 0, false, true);
+      for (const c of leftCurves) {
+        ctx.bezierCurveTo(c.cp1[0], c.cp1[1], c.cp2[0], c.cp2[1], c.end[0], c.end[1]);
+      }
       
       ctx.closePath();
     }
@@ -549,6 +562,7 @@
       socket.on('game:reset', ({ imageUrl, pieces }) => {
         currentGame.imageUrl = imageUrl; currentGame.pieces = pieces;
         pieceGroups.clear(); pieceToPieceGroup.clear(); nextGroupId = 1;
+        edgeCache = null;
         renderPuzzle();
         document.getElementById('minimapImage').src = imageUrl;
         showToast('Puzzle reset!');
@@ -599,14 +613,18 @@
     function renderPuzzle() {
       pieceElements.forEach(el => el.remove());
       pieceElements.clear();
-      pieceWidth = 800 / currentGame.gridSize.cols;
-      pieceHeight = 600 / currentGame.gridSize.rows;
-      tabSize = Math.min(pieceWidth, pieceHeight) * 0.3;
+      
+      const { cols, rows } = currentGame.gridSize;
+      pieceWidth = 800 / cols;
+      pieceHeight = 600 / rows;
+      tabSize = Math.min(pieceWidth, pieceHeight) * 0.25;
+      
       puzzleBoard.style.width = '800px';
       puzzleBoard.style.height = '600px';
       
+      // Generate edges with game ID as seed
       const seed = currentGame.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-      pieceShapes = generatePieceShapes(currentGame.gridSize.rows, currentGame.gridSize.cols, seed);
+      edgeCache = generateEdges(rows, cols, seed);
       
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -615,8 +633,11 @@
     }
 
     function createPieceElement(piece) {
-      const shape = pieceShapes.get(piece.id);
-      if (!shape || !puzzleImage) return;
+      if (!puzzleImage || !edgeCache) return;
+      
+      const { cols } = currentGame.gridSize;
+      const row = Math.floor(piece.id / cols);
+      const col = piece.id % cols;
       
       const extW = pieceWidth + tabSize * 2;
       const extH = pieceHeight + tabSize * 2;
@@ -628,7 +649,7 @@
       ctx.translate(tabSize, tabSize);
       
       // Create and clip to piece shape
-      createPiecePath(ctx, shape, pieceWidth, pieceHeight);
+      createPiecePath(ctx, row, col, pieceWidth, pieceHeight, edgeCache);
       ctx.save();
       ctx.clip();
       
@@ -640,15 +661,15 @@
       ctx.drawImage(puzzleImage, sx, sy, sw, sh, 0, 0, pieceWidth, pieceHeight);
       ctx.restore();
       
-      // Draw border with slight 3D effect
-      createPiecePath(ctx, shape, pieceWidth, pieceHeight);
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 2;
+      // Draw border
+      createPiecePath(ctx, row, col, pieceWidth, pieceHeight, edgeCache);
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
       
-      createPiecePath(ctx, shape, pieceWidth, pieceHeight);
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-      ctx.lineWidth = 1;
+      createPiecePath(ctx, row, col, pieceWidth, pieceHeight, edgeCache);
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.lineWidth = 0.5;
       ctx.stroke();
       
       const el = document.createElement('div');
@@ -1030,6 +1051,7 @@
       if (socket) { socket.disconnect(); socket = null; }
       currentGame = null; pieceElements.clear(); pieceGroups.clear(); pieceToPieceGroup.clear(); nextGroupId = 1;
       remoteCursors.forEach(c => c.remove()); remoteCursors.clear();
+      edgeCache = null;
       puzzleCanvas.innerHTML = '<div class="puzzle-board" id="puzzleBoard"></div>';
       document.getElementById('mainMenu').classList.remove('hidden');
       puzzleContainer.classList.remove('active');
